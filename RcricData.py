@@ -13,7 +13,7 @@ db = SQLAlchemy(app)
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-USER_CREDENTIALS = {"admin": "1234"}
+USER_CREDENTIALS = {"admin": "Yash@2026"}
 
 class FileRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
