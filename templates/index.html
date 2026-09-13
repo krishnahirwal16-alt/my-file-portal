@@ -25,7 +25,7 @@
         
         .card h4 { margin: 0 0 5px 0; color: #f0f6fc; font-size: 16px; padding-right: 120px; }
         .series { font-size: 12px; color: #8b949e; margin-bottom: 6px; font-weight: 500; }
-        .match-date { font-size: 11px; color: #e3b341; margin-bottom: 10px; font-weight: bold; }
+        .match-date { font-size: 12px; color: #e3b341; margin-bottom: 10px; font-weight: bold; background: #161b22; padding: 4px 8px; border-radius: 4px; border: 1px dashed #e3b341; display: inline-block; }
         .score { font-size: 14px; font-weight: bold; color: #3fb950; margin: 10px 0; background: #0d1117; padding: 9px; border-radius: 5px; border: 1px solid #21262d; line-height: 1.4; }
         .status { font-size: 13px; color: #d29922; font-weight: 600; }
         .venue { font-size: 11px; color: #6e7681; margin-top: 8px; }
@@ -81,9 +81,9 @@
                             </div>
                             <h4>{{ match.title }}</h4>
                             <div class="series">🏆 {{ match.series }}</div>
-                            <div class="match-date">⏰ IST Time: {{ match.date }}</div>
+                            <div class="match-date">⏰ {{ match.date }}</div>
                             <div class="score">⚡ {{ match.score }}</div>
-                            <div class="status">📌 Status: {{ match.status }}</div>
+                            <div class="status">📌 {{ match.status }}</div>
                             <div class="venue">📍 {{ match.venue }}</div>
                         </div>
                         {% endfor %}
@@ -105,8 +105,8 @@
                             </div>
                             <h4>{{ match.title }}</h4>
                             <div class="series">🏆 {{ match.series }}</div>
-                            <div class="match-date">📅 Scheduled IST: {{ match.date }}</div>
-                            <div class="status" style="color:#58a6ff;">⏰ {{ match.status }}</div>
+                            <div class="match-date">🗓️ {{ match.date }}</div>
+                            <div class="status" style="color:#58a6ff;">📌 Status: {{ match.status }}</div>
                             <div class="venue">📍 {{ match.venue }}</div>
                         </div>
                         {% endfor %}
@@ -128,9 +128,9 @@
                             </div>
                             <h4>{{ match.title }}</h4>
                             <div class="series">🏆 {{ match.series }}</div>
-                            <div class="match-date">📅 Match Date: {{ match.date }}</div>
+                            <div class="match-date">📅 {{ match.date }}</div>
                             <div class="score">📊 {{ match.score }}</div>
-                            <div class="status" style="color:#3fb950;">🏁 Result: {{ match.status }}</div>
+                            <div class="status" style="color:#3fb950;">🏁 {{ match.status }}</div>
                             <div class="venue">📍 {{ match.venue }}</div>
                         </div>
                         {% endfor %}
