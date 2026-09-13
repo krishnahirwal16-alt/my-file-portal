@@ -96,6 +96,7 @@ def fetch_real_cricket_data():
         start_time_ms = m_info.get('startDate') or m_info.get('matchStartTimestamp')
         match_date_ist = parse_ist_date_and_day(start_time_ms)
 
+        # Enhanced Real-time Score Extraction Logic
         score_str = ""
         if m_score:
             t1_score = m_score.get('team1Score', {})
@@ -115,8 +116,18 @@ def fetch_real_cricket_data():
                 score_parts = [p for p in [f"{team1}: {t1_i1}" if t1_i1 else "", f"{team2}: {t2_i1}" if t2_i1 else ""] if p]
                 score_str = " | ".join(score_parts)
 
-        # Remove duplicate string logic
-        display_score = score_str if score_str else "Toss / In Progress"
+        # Fallback to Miniscore if standard matchScore is empty during live play
+        if not score_str:
+            miniscore = m.get('miniscore', {})
+            if miniscore:
+                bat_team = miniscore.get('batsmanData', {}).get('teamName', '')
+                runs = miniscore.get('batsmanData', {}).get('runs', '')
+                wickets = miniscore.get('batsmanData', {}).get('wickets', '')
+                overs = miniscore.get('overs', '')
+                if bat_team and runs:
+                    score_str = f"{bat_team}: {runs}/{wickets} ({overs} ov)"
+
+        display_score = score_str if score_str else "Toss / Yet to Bat"
         display_status = status if (status and status.strip().lower() != display_score.strip().lower()) else ""
 
         venue_info = m_info.get('venueInfo', {})
