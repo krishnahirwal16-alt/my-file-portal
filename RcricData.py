@@ -115,8 +115,9 @@ def fetch_real_cricket_data():
                 score_parts = [p for p in [f"{team1}: {t1_i1}" if t1_i1 else "", f"{team2}: {t2_i1}" if t2_i1 else ""] if p]
                 score_str = " | ".join(score_parts)
 
-        if not score_str:
-            score_str = status if status else "Live Match In Progress"
+        # Remove duplicate string logic
+        display_score = score_str if score_str else "Toss / In Progress"
+        display_status = status if (status and status.strip().lower() != display_score.strip().lower()) else ""
 
         venue_info = m_info.get('venueInfo', {})
         ground = venue_info.get('ground', '')
@@ -128,15 +129,14 @@ def fetch_real_cricket_data():
             "format": match_format,
             "category": match_category,
             "series": series_name,
-            "status": status if status else "In Progress",
-            "score": score_str,
+            "status": display_status,
+            "score": display_score,
             "date": match_date_ist,
             "venue": venue
         }
 
         status_lower = status.lower()
 
-        # Strict Finished Match Check
         is_finished = (
             "complete" in state or "result" in state or "finished" in state or
             "won by" in status_lower or "beat" in status_lower or 
@@ -145,22 +145,14 @@ def fetch_real_cricket_data():
             "stumps" in status_lower
         )
         
-        # Upcoming Check
         is_upcoming = "upcoming" in state or "preview" in state or "starts at" in status_lower
 
-        # Exact Categorization logic
         if is_finished:
             matches_data["finished"].append(item)
         elif is_upcoming:
             matches_data["upcoming"].append(item)
-        elif "in progress" in state or "in-progress" in state or "live" in state or "toss" in status_lower or "opt to" in status_lower or "elected to" in status_lower or "need" in status_lower or "trail by" in status_lower or "lead by" in status_lower:
-            matches_data["live"].append(item)
         else:
-            # Secondary check for live status text
-            if not is_finished and not is_upcoming:
-                matches_data["live"].append(item)
-            else:
-                matches_data["finished"].append(item)
+            matches_data["live"].append(item)
 
     def fetch_endpoint_data(url):
         try:
@@ -189,11 +181,8 @@ def fetch_real_cricket_data():
         except Exception as e:
             print("API Processing Error:", e)
 
-    # 1. Fetch Live Matches Endpoint first
     fetch_endpoint_data("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/live")
-    # 2. Fetch Recent Matches Endpoint
     fetch_endpoint_data("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/recent")
-    # 3. Fetch Upcoming Matches Endpoint
     fetch_endpoint_data("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/upcoming")
 
     return matches_data
