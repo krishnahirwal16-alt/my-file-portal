@@ -7,15 +7,20 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background-color: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: #0d1117; color: #e6edf3; font-family: 'Segoe UI', sans-serif; }
         .navbar { background-color: #161b22; border-bottom: 1px solid #30363d; }
         .card { background-color: #161b22; border: 1px solid #30363d; border-radius: 10px; }
         .nav-pills .nav-link { color: #8b949e; border-radius: 8px; font-weight: 600; }
         .nav-pills .nav-link.active { background-color: #238636; color: white; }
         .badge-live { background-color: #da3633; color: white; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
-        .search-box { background-color: #0d1117; border: 1px solid #30363d; color: #c9d1d9; }
-        .search-box:focus { background-color: #0d1117; color: white; border-color: #238636; box-shadow: none; }
+        .search-box { background-color: #161b22; border: 1px solid #30363d; color: #ffffff; }
+        .search-box:focus { background-color: #161b22; color: white; border-color: #238636; box-shadow: none; }
+        
+        /* Fixed High-Visibility Text Colors */
+        .text-series-name { color: #8b949e !important; font-size: 0.85rem; }
+        .text-date-ist { color: #e3b341 !important; font-weight: 500; font-size: 0.85rem; }
+        .text-venue-info { color: #a5d6ff !important; font-size: 0.85rem; }
     </style>
 </head>
 <body>
@@ -33,7 +38,7 @@
 
 <div class="container pb-5">
 
-    <!-- Top Navigation Tabs -->
+    <!-- Main Navigation Tabs -->
     <ul class="nav nav-pills mb-3" id="mainTab" role="tablist">
         <li class="nav-item">
             <button class="nav-link active me-2" id="realtime-tab" data-bs-toggle="tab" data-bs-target="#realtime" type="button"><i class="fa-solid fa-tower-broadcast me-2"></i>Real-Time Matches</button>
@@ -77,7 +82,7 @@
             </ul>
 
             <div class="tab-content">
-                <!-- LIVE -->
+                <!-- LIVE MATCHES -->
                 <div class="tab-pane fade show active" id="live-matches">
                     <div class="row g-3" id="liveMatchContainer">
                         {% for match in cricket_data.live %}
@@ -88,15 +93,15 @@
                                     <span class="badge bg-success mb-2">{{ match.format }}</span>
                                 </div>
                                 <h6 class="fw-bold text-white mb-1 match-title">{{ match.title }}</h6>
-                                <small class="text-muted d-block mb-2 match-series">🏆 {{ match.series }}</small>
-                                <div class="p-2 rounded bg-dark border border-secondary text-warning mb-2 match-score">
+                                <div class="text-series-name mb-2 match-series">🏆 {{ match.series }}</div>
+                                <div class="p-2 rounded bg-dark border border-secondary text-warning fw-bold mb-2 match-score">
                                     ⚡ {{ match.score }}
                                 </div>
                                 {% if match.status %}
                                 <div class="small text-info mb-1">📌 {{ match.status }}</div>
                                 {% endif %}
-                                <div class="small text-secondary">📍 {{ match.venue }}</div>
-                                <div class="small text-muted mt-1">⏰ {{ match.date }}</div>
+                                <div class="text-venue-info mb-1">📍 {{ match.venue }}</div>
+                                <div class="text-date-ist">⏰ {{ match.date }}</div>
                             </div>
                         </div>
                         {% else %}
@@ -105,7 +110,7 @@
                     </div>
                 </div>
 
-                <!-- UPCOMING -->
+                <!-- UPCOMING MATCHES -->
                 <div class="tab-pane fade" id="upcoming-matches">
                     <div class="row g-3" id="upcomingMatchContainer">
                         {% for match in cricket_data.upcoming %}
@@ -116,9 +121,9 @@
                                     <span class="badge bg-info mb-2">{{ match.format }}</span>
                                 </div>
                                 <h6 class="fw-bold text-white mb-1 match-title">{{ match.title }}</h6>
-                                <small class="text-muted d-block mb-2 match-series">🏆 {{ match.series }}</small>
-                                <div class="small text-info mb-1">⏰ {{ match.date }}</div>
-                                <div class="small text-secondary">📍 {{ match.venue }}</div>
+                                <div class="text-series-name mb-2 match-series">🏆 {{ match.series }}</div>
+                                <div class="text-date-ist mb-1">⏰ {{ match.date }}</div>
+                                <div class="text-venue-info">📍 {{ match.venue }}</div>
                             </div>
                         </div>
                         {% else %}
@@ -127,7 +132,7 @@
                     </div>
                 </div>
 
-                <!-- FINISHED -->
+                <!-- FINISHED MATCHES -->
                 <div class="tab-pane fade" id="finished-matches">
                     <div class="row g-3" id="finishedMatchContainer">
                         {% for match in cricket_data.finished %}
@@ -138,15 +143,15 @@
                                     <span class="badge bg-dark mb-2">{{ match.format }}</span>
                                 </div>
                                 <h6 class="fw-bold text-white mb-1 match-title">{{ match.title }}</h6>
-                                <small class="text-muted d-block mb-2 match-series">🏆 {{ match.series }}</small>
-                                <div class="p-2 rounded bg-dark border border-secondary text-success mb-2 match-score">
+                                <div class="text-series-name mb-2 match-series">🏆 {{ match.series }}</div>
+                                <div class="p-2 rounded bg-dark border border-secondary text-success fw-bold mb-2 match-score">
                                     ⚡ {{ match.score }}
                                 </div>
                                 {% if match.status %}
                                 <div class="small text-info mb-1">📌 {{ match.status }}</div>
                                 {% endif %}
-                                <div class="small text-secondary">📍 {{ match.venue }}</div>
-                                <div class="small text-muted mt-1">⏰ {{ match.date }}</div>
+                                <div class="text-venue-info mb-1">📍 {{ match.venue }}</div>
+                                <div class="text-date-ist">⏰ {{ match.date }}</div>
                             </div>
                         </div>
                         {% else %}
