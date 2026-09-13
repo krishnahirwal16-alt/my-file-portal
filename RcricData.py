@@ -78,7 +78,7 @@ def fetch_real_cricket_data():
 
     processed_match_ids = set()
 
-    def extract_and_append_match(m, match_category="Other", series_name="Cricket Series"):
+    def extract_and_append_match(m, match_category="Other", series_name="Cricket Series", force_live=False):
         m_info = m.get('matchInfo', {})
         m_score = m.get('matchScore', {})
         match_id = m_info.get('matchId')
@@ -96,7 +96,6 @@ def fetch_real_cricket_data():
         start_time_ms = m_info.get('startDate') or m_info.get('matchStartTimestamp')
         match_date_ist = parse_ist_date_and_day(start_time_ms)
 
-        # Detailed Score Construction
         score_str = ""
         if m_score:
             t1_score = m_score.get('team1Score', {})
@@ -137,7 +136,6 @@ def fetch_real_cricket_data():
 
         status_lower = status.lower()
 
-        # Strict Categorization Logic
         is_finished = (
             "complete" in state or "result" in state or 
             "won by" in status_lower or "beat" in status_lower or 
@@ -147,20 +145,26 @@ def fetch_real_cricket_data():
         
         is_upcoming = "upcoming" in state or "preview" in state or "starts at" in status_lower
 
-        if is_finished:
-            matches_data["finished"].append(item)
-        elif is_upcoming:
-            matches_data["upcoming"].append(item)
+        if force_live:
+            if not is_finished and not is_upcoming:
+                matches_data["live"].append(item)
+            elif is_finished:
+                matches_data["finished"].append(item)
+            else:
+                matches_data["live"].append(item)
         else:
-            matches_data["live"].append(item)
+            if is_finished:
+                matches_data["finished"].append(item)
+            elif is_upcoming:
+                matches_data["upcoming"].append(item)
+            else:
+                matches_data["live"].append(item)
 
-    def parse_api_response(url):
+    def parse_api_response(url, is_live_endpoint=False):
         try:
             res = requests.get(url, headers=headers, timeout=10)
             if res.status_code == 200:
                 raw = res.json()
-                
-                # Format 1: Standard Cricbuzz typeMatches list
                 type_matches = raw.get('typeMatches', [])
                 if type_matches:
                     for type_group in type_matches:
@@ -173,19 +177,19 @@ def fetch_real_cricket_data():
                             matches = series_ad.get('matches', []) or series_item.get('matches', [])
 
                             for m in matches:
-                                extract_and_append_match(m, match_category, series_name)
-                
-                # Format 2: Direct matches / response list
+                                extract_and_append_match(m, match_category, series_name, force_live=is_live_endpoint)
                 elif 'matches' in raw:
                     for m in raw.get('matches', []):
-                        extract_and_append_match(m)
+                        extract_and_append_match(m, force_live=is_live_endpoint)
 
         except Exception as e:
-            print("API Exception:", e)
+            print("Cricbuzz API Exception:", e)
 
-    # Fetching from all Cricbuzz endpoints
-    parse_api_response("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/live")
+    # 1. Fetch live matches first
+    parse_api_response("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/live", is_live_endpoint=True)
+    # 2. Fetch recent matches
     parse_api_response("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/recent")
+    # 3. Fetch upcoming matches
     parse_api_response("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/upcoming")
 
     return matches_data
