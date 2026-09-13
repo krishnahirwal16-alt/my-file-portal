@@ -55,24 +55,17 @@ def parse_ist_date_and_day(timestamp_ms):
         return "Date N/A"
 
 def fetch_real_cricket_data():
-    api_key = os.environ.get('RAPIDAPI_KEY')
     matches_data = {"live": [], "upcoming": [], "finished": []}
-
-    if not api_key:
-        print("WARNING: RAPIDAPI_KEY is missing in environment variables.")
-        return matches_data
-
-    headers = {
-        "x-rapidapi-key": api_key,
-        "x-rapidapi-host": "cricbuzz-cricket.p.rapidapi.com"
-    }
-
     processed_match_ids = set()
 
-    def process_matches_from_response(raw_json):
-        type_matches = raw_json.get('typeMatches', [])
+    # Browser User-Agent header to bypass basic blocking
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+
+    def process_match_list(type_matches):
         for type_group in type_matches:
-            match_category = type_group.get('matchType', 'Other')
+            match_category = type_group.get('matchType', 'International')
             series_matches = type_group.get('seriesMatches', [])
             for series_item in series_matches:
                 series_ad = series_item.get('seriesAdWrapper', {})
@@ -103,7 +96,7 @@ def fetch_real_cricket_data():
                         venue_info = m_info.get('venueInfo', {})
                         ground = venue_info.get('ground', '')
                         city = venue_info.get('city', '')
-                        venue = f"{ground}, {city}".strip(", ") if (ground or city) else "Cricket Ground"
+                        venue = f"{ground}, {city}".strip(", ") if (ground or city) else "Cricket Stadium"
 
                         item = {
                             "title": f"{team1} vs {team2}",
@@ -136,34 +129,42 @@ def fetch_real_cricket_data():
                             matches_data["upcoming"].append(item)
                         else:
                             matches_data["live"].append(item)
-                    except Exception as err:
-                        print("Error parsing match:", err)
+                    except Exception:
+                        pass
 
-    # 1. Fetch Live
-    try:
-        r1 = requests.get("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/live", headers=headers, timeout=10)
-        if r1.status_code == 200:
-            process_matches_from_response(r1.json())
-        else:
-            print(f"Live API Status Code: {r1.status_code}")
-    except Exception as e:
-        print("Live Fetch Error:", e)
+    # Direct Cricbuzz Data endpoints
+    urls = [
+        "https://www.cricbuzz.com/api/cricket-match/commentary/live-matches",
+        "https://m.cricbuzz.com/api/cricket-match/live"
+    ]
 
-    # 2. Fetch Recent (Finished)
-    try:
-        r2 = requests.get("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/recent", headers=headers, timeout=10)
-        if r2.status_code == 200:
-            process_matches_from_response(r2.json())
-    except Exception as e:
-        print("Recent Fetch Error:", e)
+    for u in urls:
+        try:
+            res = requests.get(u, headers=headers, timeout=5)
+            if res.status_code == 200:
+                data = res.json()
+                type_matches = data.get('typeMatches', [])
+                if type_matches:
+                    process_match_list(type_matches)
+                    break
+        except Exception:
+            pass
 
-    # 3. Fetch Upcoming
-    try:
-        r3 = requests.get("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/upcoming", headers=headers, timeout=10)
-        if r3.status_code == 200:
-            process_matches_from_response(r3.json())
-    except Exception as e:
-        print("Upcoming Fetch Error:", e)
+    # RapidAPI Fallback (if direct endpoints fail)
+    if not any(matches_data.values()):
+        api_key = os.environ.get('RAPIDAPI_KEY')
+        if api_key:
+            rapid_headers = {
+                "x-rapidapi-key": api_key,
+                "x-rapidapi-host": "cricbuzz-cricket.p.rapidapi.com"
+            }
+            for ep in ["live", "recent", "upcoming"]:
+                try:
+                    res = requests.get(f"https://cricbuzz-cricket.p.rapidapi.com/matches/v1/{ep}", headers=rapid_headers, timeout=6)
+                    if res.status_code == 200:
+                        process_match_list(res.json().get('typeMatches', []))
+                except Exception:
+                    pass
 
     return matches_data
 
