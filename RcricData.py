@@ -58,111 +58,106 @@ def fetch_real_cricket_data():
     matches_data = {"live": [], "upcoming": [], "finished": []}
     processed_match_ids = set()
 
-    # Browser User-Agent header to bypass basic blocking
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
+    # Priority 1: Open Cricket Data Feed
+    try:
+        open_res = requests.get("https://api.cricapi.com/v1/cda?apikey=36474df6-72be-4573-a442-88ec0c5bc622&offset=0", timeout=6)
+        if open_res.status_code == 200:
+            data_list = open_res.json().get('data', [])
+            for item in data_list:
+                m_id = item.get('id')
+                if m_id in processed_match_ids:
+                    continue
+                processed_match_ids.add(m_id)
 
-    def process_match_list(type_matches):
-        for type_group in type_matches:
-            match_category = type_group.get('matchType', 'International')
-            series_matches = type_group.get('seriesMatches', [])
-            for series_item in series_matches:
-                series_ad = series_item.get('seriesAdWrapper', {})
-                series_name = series_ad.get('seriesName') or series_item.get('seriesName', 'Cricket Series')
-                matches = series_ad.get('matches', []) or series_item.get('matches', [])
-                
-                for m in matches:
-                    try:
-                        m_info = m.get('matchInfo', {})
-                        match_id = m_info.get('matchId')
+                t1 = item.get('teams', ['Team 1', 'Team 2'])[0]
+                t2 = item.get('teams', ['Team 1', 'Team 2'])[1] if len(item.get('teams', [])) > 1 else "Team 2"
+                t1_short = t1[:4].upper()
+                t2_short = t2[:4].upper()
 
-                        if not match_id or match_id in processed_match_ids:
-                            continue
-                        processed_match_ids.add(match_id)
+                status = item.get('status', 'Scheduled')
+                match_format = (item.get('matchType') or 'T20').upper()
+                venue = item.get('venue', 'Cricket Ground')
+                date_str = item.get('date', 'Date N/A')
 
-                        team1 = m_info.get('team1', {}).get('teamName', 'Team 1')
-                        team2 = m_info.get('team2', {}).get('teamName', 'Team 2')
-                        team1_short = m_info.get('team1', {}).get('sName', team1[:4].upper())
-                        team2_short = m_info.get('team2', {}).get('sName', team2[:4].upper())
+                match_card = {
+                    "title": f"{t1} vs {t2}",
+                    "team1_short": t1_short,
+                    "team1_score": "Yet to Bat",
+                    "team1_batting": False,
+                    "team2_short": t2_short,
+                    "team2_score": "Yet to Bat",
+                    "team2_batting": False,
+                    "format": match_format,
+                    "category": "International",
+                    "series": item.get('name', 'Cricket Series'),
+                    "status": status,
+                    "date": date_str,
+                    "venue": venue
+                }
 
-                        match_format = (m_info.get('matchFormat') or m_info.get('format', 'T20')).upper()
-                        status = m_info.get('status', '')
-                        state = (m_info.get('state') or '').lower().strip()
+                if item.get('matchEnded', False):
+                    matches_data["finished"].append(match_card)
+                elif item.get('matchStarted', False):
+                    matches_data["live"].append(match_card)
+                else:
+                    matches_data["upcoming"].append(match_card)
+    except Exception as e:
+        print("Open Feed Fetch Error:", e)
 
-                        start_time_ms = m_info.get('startDate') or m_info.get('matchStartTimestamp')
-                        match_date_ist = parse_ist_date_and_day(start_time_ms)
-
-                        venue_info = m_info.get('venueInfo', {})
-                        ground = venue_info.get('ground', '')
-                        city = venue_info.get('city', '')
-                        venue = f"{ground}, {city}".strip(", ") if (ground or city) else "Cricket Stadium"
-
-                        item = {
-                            "title": f"{team1} vs {team2}",
-                            "team1_short": team1_short,
-                            "team1_score": "Yet to Bat",
-                            "team1_batting": False,
-                            "team2_short": team2_short,
-                            "team2_score": "Yet to Bat",
-                            "team2_batting": False,
-                            "format": match_format,
-                            "category": match_category,
-                            "series": series_name,
-                            "status": status,
-                            "date": match_date_ist,
-                            "venue": venue
-                        }
-
-                        status_lower = status.lower()
-                        is_finished = (
-                            "complete" in state or "result" in state or "finished" in state or
-                            "won by" in status_lower or "beat" in status_lower or 
-                            "drawn" in status_lower or "tied" in status_lower or 
-                            "abandoned" in status_lower or "no result" in status_lower
-                        )
-                        is_upcoming = "upcoming" in state or "preview" in state or "starts at" in status_lower
-
-                        if is_finished:
-                            matches_data["finished"].append(item)
-                        elif is_upcoming:
-                            matches_data["upcoming"].append(item)
-                        else:
-                            matches_data["live"].append(item)
-                    except Exception:
-                        pass
-
-    # Direct Cricbuzz Data endpoints
-    urls = [
-        "https://www.cricbuzz.com/api/cricket-match/commentary/live-matches",
-        "https://m.cricbuzz.com/api/cricket-match/live"
-    ]
-
-    for u in urls:
-        try:
-            res = requests.get(u, headers=headers, timeout=5)
-            if res.status_code == 200:
-                data = res.json()
-                type_matches = data.get('typeMatches', [])
-                if type_matches:
-                    process_match_list(type_matches)
-                    break
-        except Exception:
-            pass
-
-    # RapidAPI Fallback (if direct endpoints fail)
+    # Priority 2: RapidAPI Cricbuzz Call (Fallback)
     if not any(matches_data.values()):
         api_key = os.environ.get('RAPIDAPI_KEY')
         if api_key:
-            rapid_headers = {
+            headers = {
                 "x-rapidapi-key": api_key,
                 "x-rapidapi-host": "cricbuzz-cricket.p.rapidapi.com"
             }
             for ep in ["live", "recent", "upcoming"]:
                 try:
-                    res = requests.get(f"https://cricbuzz-cricket.p.rapidapi.com/matches/v1/{ep}", headers=rapid_headers, timeout=6)
+                    res = requests.get(f"https://cricbuzz-cricket.p.rapidapi.com/matches/v1/{ep}", headers=headers, timeout=6)
                     if res.status_code == 200:
-                        process_match_list(res.json().get('typeMatches', []))
+                        type_matches = res.json().get('typeMatches', [])
+                        for type_group in type_matches:
+                            match_category = type_group.get('matchType', 'Other')
+                            for series_item in type_group.get('seriesMatches', []):
+                                series_ad = series_item.get('seriesAdWrapper', {})
+                                series_name = series_ad.get('seriesName') or series_item.get('seriesName', 'Cricket Series')
+                                matches = series_ad.get('matches', []) or series_item.get('matches', [])
+                                for m in matches:
+                                    m_info = m.get('matchInfo', {})
+                                    m_id = m_info.get('matchId')
+                                    if not m_id or m_id in processed_match_ids:
+                                        continue
+                                    processed_match_ids.add(m_id)
+
+                                    team1 = m_info.get('team1', {}).get('teamName', 'Team 1')
+                                    team2 = m_info.get('team2', {}).get('teamName', 'Team 2')
+                                    status = m_info.get('status', '')
+                                    state = (m_info.get('state') or '').lower().strip()
+
+                                    card = {
+                                        "title": f"{team1} vs {team2}",
+                                        "team1_short": m_info.get('team1', {}).get('sName', team1[:4].upper()),
+                                        "team1_score": "Yet to Bat",
+                                        "team1_batting": False,
+                                        "team2_short": m_info.get('team2', {}).get('sName', team2[:4].upper()),
+                                        "team2_score": "Yet to Bat",
+                                        "team2_batting": False,
+                                        "format": (m_info.get('matchFormat') or 'T20').upper(),
+                                        "category": match_category,
+                                        "series": series_name,
+                                        "status": status,
+                                        "date": parse_ist_date_and_day(m_info.get('startDate')),
+                                        "venue": m_info.get('venueInfo', {}).get('ground', 'Cricket Ground')
+                                    }
+
+                                    status_lower = status.lower()
+                                    if "complete" in state or "result" in state or "finished" in state:
+                                        matches_data["finished"].append(card)
+                                    elif "upcoming" in state or "preview" in state:
+                                        matches_data["upcoming"].append(card)
+                                    else:
+                                        matches_data["live"].append(card)
                 except Exception:
                     pass
 
