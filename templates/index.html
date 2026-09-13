@@ -1,260 +1,255 @@
-import os
-import requests
-from datetime import datetime, timezone, timedelta
-from flask import Flask, render_template, request, redirect, url_for, flash, session
-from flask_sqlalchemy import SQLAlchemy
-import cloudinary
-import cloudinary.uploader
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrixData Hub</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #0b0e14; color: #e6edf3; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .navbar { background-color: #161b22; border-bottom: 1px solid #21262d; }
+        .nav-pills .nav-link { color: #8b949e; border-radius: 8px; font-weight: 600; }
+        .nav-pills .nav-link.active { background-color: #238636; color: white; }
+        .search-box { background-color: #161b22; border: 1px solid #30363d; color: #ffffff; }
 
-app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'crixdata_secret_key_2026')
+        /* CREX CARD STYLING */
+        .crex-card {
+            background-color: #ffffff;
+            color: #111827;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: transform 0.2s;
+        }
+        .crex-card:hover { transform: translateY(-2px); }
+        .crex-header { font-size: 0.8rem; font-weight: 600; color: #6b7280; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .crex-live-badge { color: #ef4444; font-weight: 700; font-size: 0.8rem; display: flex; align-items: center; gap: 4px; }
+        .crex-live-dot { width: 8px; height: 8px; background-color: #ef4444; border-radius: 50%; display: inline-block; animation: blink 1.2s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.2; } 100% { opacity: 1; } }
+        .crex-venue { font-size: 0.75rem; color: #9ca3af; margin-bottom: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        .crex-team-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .crex-team-name { font-weight: 700; font-size: 1rem; color: #1f2937; display: flex; align-items: center; gap: 6px; }
+        .crex-score { font-weight: 700; font-size: 1.05rem; color: #111827; }
+        .crex-batting-icon { color: #f59e0b; font-size: 0.85rem; }
+        
+        .crex-status-footer { font-size: 0.78rem; font-weight: 600; color: #d97706; background-color: #fffbeb; padding: 6px 10px; border-radius: 6px; margin-top: 10px; }
+        .crex-time-footer { font-size: 0.75rem; color: #6b7280; margin-top: 8px; text-align: right; }
+    </style>
+</head>
+<body>
 
-db_url = os.environ.get('DATABASE_URL', 'sqlite:///files.db')
-if db_url.startswith("postgres://"):
-    db_url = db_url.replace("postgres://", "postgresql://", 1)
+<nav class="navbar navbar-expand-lg navbar-dark mb-4 px-4">
+    <a class="navbar-brand fw-bold text-info fs-4" href="/"><i class="fa-solid fa-cricket-bat-ball me-2"></i>CrixData Hub</a>
+    <div class="ms-auto">
+        {% if is_admin %}
+            <a href="/logout" class="btn btn-outline-danger btn-sm me-2">Logout Admin</a>
+        {% else %}
+            <a href="/admin" class="btn btn-outline-light btn-sm">Admin Login</a>
+        {% endif %}
+    </div>
+</nav>
 
-app.config['SQLALCHEMY_DATABASE_URI'] = db_url
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+<div class="container pb-5">
 
-db = SQLAlchemy(app)
+    <ul class="nav nav-pills mb-3" id="mainTab" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active me-2" id="realtime-tab" data-bs-toggle="tab" data-bs-target="#realtime" type="button"><i class="fa-solid fa-tower-broadcast me-2"></i>Real-Time Matches</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" id="vault-tab" data-bs-toggle="tab" data-bs-target="#vault" type="button"><i class="fa-solid fa-folder-open me-2"></i>Cricket Data Vault</button>
+        </li>
+    </ul>
 
-class FileRecord(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(200), nullable=False)
-    file_url = db.Column(db.String(500), nullable=False)
-    public_id = db.Column(db.String(200), nullable=False)
-    category = db.Column(db.String(100), default="General Cricket")
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="realtime">
+            
+            <div class="row my-3">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text bg-dark text-secondary border-secondary"><i class="fa-solid fa-magnifying-glass"></i></span>
+                        <input type="text" id="matchSearchInput" class="form-control search-box" placeholder="Search team, tournament or venue..." onkeyup="filterMatches()">
+                    </div>
+                </div>
+            </div>
 
-cloudinary.config(
-    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
-    api_key=os.environ.get('CLOUDINARY_API_KEY'),
-    api_secret=os.environ.get('CLOUDINARY_API_SECRET')
-)
+            <ul class="nav nav-pills mb-4" id="matchSubTab" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active me-2" data-bs-toggle="tab" data-bs-target="#live-matches" type="button">
+                        <span class="text-danger fw-bold me-1">●</span> Live Matches ({{ cricket_data.live|length }})
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link me-2" data-bs-toggle="tab" data-bs-target="#upcoming-matches" type="button">
+                        📅 Upcoming Matches ({{ cricket_data.upcoming|length }})
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#finished-matches" type="button">
+                        ✅ Finished Matches ({{ cricket_data.finished|length }})
+                    </button>
+                </li>
+            </ul>
 
-db_created = False
+            <div class="tab-content">
+                <!-- LIVE MATCHES -->
+                <div class="tab-pane fade show active" id="live-matches">
+                    <div class="row g-3" id="liveMatchContainer">
+                        {% for match in cricket_data.live %}
+                        <div class="col-md-4 match-card-item">
+                            <div class="crex-card">
+                                <div class="crex-header">
+                                    <span class="crex-live-badge"><span class="crex-live-dot"></span> Live</span>
+                                    <span>{{ match.series }}</span>
+                                </div>
+                                <div class="crex-venue">{{ match.venue }}</div>
 
-@app.before_request
-def create_tables_once():
-    global db_created
-    if not db_created:
-        try:
-            db.create_all()
-            db_created = True
-        except Exception:
-            pass
+                                <!-- Team 1 Row -->
+                                <div class="crex-team-row">
+                                    <div class="crex-team-name">
+                                        {{ match.team1_short }}
+                                        {% if match.team1_batting %}<i class="fa-solid fa-cricket-bat-ball crex-batting-icon"></i>{% endif %}
+                                    </div>
+                                    <div class="crex-score">{{ match.team1_score }}</div>
+                                </div>
 
-def parse_ist_date_and_day(timestamp_ms):
-    if not timestamp_ms:
-        return "Date/Time N/A"
-    try:
-        ts = int(timestamp_ms) / 1000.0
-        utc_dt = datetime.fromtimestamp(ts, tz=timezone.utc)
-        ist_dt = utc_dt.astimezone(timezone(timedelta(hours=5, minutes=30)))
-        return ist_dt.strftime("%A, %d %b %Y | %I:%M %p IST")
-    except Exception:
-        return "Date N/A"
+                                <!-- Team 2 Row -->
+                                <div class="crex-team-row">
+                                    <div class="crex-team-name">
+                                        {{ match.team2_short }}
+                                        {% if match.team2_batting %}<i class="fa-solid fa-cricket-bat-ball crex-batting-icon"></i>{% endif %}
+                                    </div>
+                                    <div class="crex-score">{{ match.team2_score }}</div>
+                                </div>
 
-def extract_team_scores(m, team1_short, team2_short):
-    """Safely extracts score from Cricbuzz item without extra API calls"""
-    t1_score = "Yet to Bat"
-    t2_score = "Yet to Bat"
-    
-    try:
-        m_score = m.get('matchScore', {}) or m.get('miniscore', {})
-        if m_score:
-            # Check team1 / team2 direct keys
-            t1_s = m_score.get('team1Score', {}).get('inngs1', {}) or m_score.get('team1Score', {})
-            t2_s = m_score.get('team2Score', {}).get('inngs1', {}) or m_score.get('team2Score', {})
+                                {% if match.status %}
+                                <div class="crex-status-footer">
+                                    📌 {{ match.status }}
+                                </div>
+                                {% endif %}
+                                <div class="crex-time-footer">⏰ {{ match.date }}</div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <p class="text-muted">No live matches currently in progress.</p>
+                        {% endfor %}
+                    </div>
+                </div>
 
-            if isinstance(t1_s, dict) and t1_s.get('runs') is not None:
-                r, w, o = t1_s.get('runs', 0), t1_s.get('wickets', 0), t1_s.get('overs', '')
-                t1_score = f"{r}-{w}" + (f" {o}" if o else "")
-                
-            if isinstance(t2_s, dict) and t2_s.get('runs') is not None:
-                r, w, o = t2_s.get('runs', 0), t2_s.get('wickets', 0), t2_s.get('overs', '')
-                t2_score = f"{r}-{w}" + (f" {o}" if o else "")
+                <!-- UPCOMING MATCHES -->
+                <div class="tab-pane fade" id="upcoming-matches">
+                    <div class="row g-3" id="upcomingMatchContainer">
+                        {% for match in cricket_data.upcoming %}
+                        <div class="col-md-4 match-card-item">
+                            <div class="crex-card">
+                                <div class="crex-header">
+                                    <span class="text-primary fw-bold">Upcoming</span>
+                                    <span>{{ match.series }}</span>
+                                </div>
+                                <div class="crex-venue">{{ match.venue }}</div>
+                                <div class="crex-team-row">
+                                    <div class="crex-team-name">{{ match.team1_short }}</div>
+                                    <div class="text-muted small">VS</div>
+                                </div>
+                                <div class="crex-team-row">
+                                    <div class="crex-team-name">{{ match.team2_short }}</div>
+                                </div>
+                                <div class="crex-time-footer text-start mt-2">⏰ {{ match.date }}</div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <p class="text-muted">No upcoming matches scheduled.</p>
+                        {% endfor %}
+                    </div>
+                </div>
 
-            # Check inningsScoreList fallback
-            if t1_score == "Yet to Bat" and t2_score == "Yet to Bat":
-                innings_list = m_score.get('inningsScoreList', [])
-                if isinstance(innings_list, list):
-                    for inn in innings_list:
-                        name = inn.get('batTeamName') or inn.get('teamShortName') or ''
-                        r, w, o = inn.get('runs', 0), inn.get('wickets', 0), inn.get('overs', '')
-                        formatted = f"{r}-{w}" + (f" {o}" if o else "")
-                        
-                        if team1_short.lower() in name.lower() or name.lower() in team1_short.lower():
-                            t1_score = formatted
-                        elif team2_short.lower() in name.lower() or name.lower() in team2_short.lower():
-                            t2_score = formatted
-                        else:
-                            if t1_score == "Yet to Bat":
-                                t1_score = formatted
-                            else:
-                                t2_score = formatted
-    except Exception as e:
-        print("Score extraction warning:", e)
+                <!-- FINISHED MATCHES -->
+                <div class="tab-pane fade" id="finished-matches">
+                    <div class="row g-3" id="finishedMatchContainer">
+                        {% for match in cricket_data.finished %}
+                        <div class="col-md-4 match-card-item">
+                            <div class="crex-card">
+                                <div class="crex-header">
+                                    <span class="text-success fw-bold">Finished</span>
+                                    <span>{{ match.series }}</span>
+                                </div>
+                                <div class="crex-venue">{{ match.venue }}</div>
+                                <div class="crex-team-row">
+                                    <div class="crex-team-name">{{ match.team1_short }}</div>
+                                    <div class="crex-score">{{ match.team1_score }}</div>
+                                </div>
+                                <div class="crex-team-row">
+                                    <div class="crex-team-name">{{ match.team2_short }}</div>
+                                    <div class="crex-score">{{ match.team2_score }}</div>
+                                </div>
+                                {% if match.status %}
+                                <div class="crex-status-footer" style="color: #059669; background-color: #ecfdf5;">
+                                    🏆 {{ match.status }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% else %}
+                        <p class="text-muted">No completed matches available.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
 
-    return t1_score, t2_score
+        <!-- VAULT TAB -->
+        <div class="tab-pane fade" id="vault">
+            {% if is_admin %}
+            <div class="card p-3 mb-4 bg-dark text-white border-secondary">
+                <h5>Upload New File</h5>
+                <form action="/upload" method="POST" enctype="multipart/form-data">
+                    <div class="row g-2">
+                        <div class="col-md-5">
+                            <input type="text" name="title" class="form-control" placeholder="File Title" required>
+                        </div>
+                        <div class="col-md-4">
+                            <input type="file" name="file" class="form-control" required>
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-success w-100">Upload</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
 
-def fetch_real_cricket_data():
-    api_key = os.environ.get('RAPIDAPI_KEY')
-    matches_data = {"live": [], "upcoming": [], "finished": []}
+            <div class="row g-3">
+                {% for file in files %}
+                <div class="col-md-4">
+                    <div class="card p-3 bg-dark border-secondary">
+                        <h6 class="text-white">{{ file.title }}</h6>
+                        <a href="{{ file.file_url }}" target="_blank" class="btn btn-outline-info btn-sm mt-2">View / Download</a>
+                        {% if is_admin %}
+                        <form action="/delete/{{ file.id }}" method="POST" class="mt-2">
+                            <button type="submit" class="btn btn-sm btn-danger w-100">Delete</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-muted">No files uploaded in vault.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
 
-    if not api_key:
-        return matches_data
-
-    headers = {
-        "x-rapidapi-key": api_key,
-        "x-rapidapi-host": "cricbuzz-cricket.p.rapidapi.com"
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function filterMatches() {
+    let input = document.getElementById('matchSearchInput').value.toLowerCase();
+    let cards = document.getElementsByClassName('match-card-item');
+    for (let i = 0; i < cards.length; i++) {
+        let text = cards[i].innerText.toLowerCase();
+        cards[i].style.display = text.includes(input) ? "" : "none";
     }
-
-    processed_match_ids = set()
-
-    def process_match_item(m, match_category="Other", series_name="Cricket Series"):
-        try:
-            m_info = m.get('matchInfo', {})
-            match_id = m_info.get('matchId')
-
-            if not match_id or match_id in processed_match_ids:
-                return
-            processed_match_ids.add(match_id)
-
-            team1 = m_info.get('team1', {}).get('teamName', 'Team 1')
-            team2 = m_info.get('team2', {}).get('teamName', 'Team 2')
-            team1_short = m_info.get('team1', {}).get('sName', team1[:4].upper())
-            team2_short = m_info.get('team2', {}).get('sName', team2[:4].upper())
-
-            match_format = (m_info.get('matchFormat') or m_info.get('format', 'T20')).upper()
-            status = m_info.get('status', '')
-            state = (m_info.get('state') or '').lower().strip()
-
-            start_time_ms = m_info.get('startDate') or m_info.get('matchStartTimestamp')
-            match_date_ist = parse_ist_date_and_day(start_time_ms)
-
-            venue_info = m_info.get('venueInfo', {})
-            ground = venue_info.get('ground', '')
-            city = venue_info.get('city', '')
-            venue = f"{ground}, {city}".strip(", ") if (ground or city) else "Cricket Ground"
-
-            t1_score, t2_score = extract_team_scores(m, team1_short, team2_short)
-
-            item = {
-                "title": f"{team1} vs {team2}",
-                "team1_short": team1_short,
-                "team1_score": t1_score,
-                "team1_batting": False,
-                "team2_short": team2_short,
-                "team2_score": t2_score,
-                "team2_batting": False,
-                "format": match_format,
-                "category": match_category,
-                "series": series_name,
-                "status": status,
-                "date": match_date_ist,
-                "venue": venue
-            }
-
-            status_lower = status.lower()
-            is_finished = (
-                "complete" in state or "result" in state or "finished" in state or
-                "won by" in status_lower or "beat" in status_lower or 
-                "drawn" in status_lower or "tied" in status_lower or 
-                "abandoned" in status_lower or "no result" in status_lower
-            )
-            is_upcoming = "upcoming" in state or "preview" in state or "starts at" in status_lower
-
-            if is_finished:
-                matches_data["finished"].append(item)
-            elif is_upcoming:
-                matches_data["upcoming"].append(item)
-            else:
-                matches_data["live"].append(item)
-        except Exception as err:
-            print("Item Parse Error:", err)
-
-    def fetch_endpoint_data(url):
-        try:
-            res = requests.get(url, headers=headers, timeout=8)
-            if res.status_code == 200:
-                raw = res.json()
-                type_matches = raw.get('typeMatches', [])
-                if type_matches:
-                    for type_group in type_matches:
-                        match_category = type_group.get('matchType', 'Other')
-                        series_matches = type_group.get('seriesMatches', [])
-                        for series_item in series_matches:
-                            series_ad = series_item.get('seriesAdWrapper', {})
-                            series_name = series_ad.get('seriesName') or series_item.get('seriesName', 'Cricket Series')
-                            matches = series_ad.get('matches', []) or series_item.get('matches', [])
-                            for m in matches:
-                                process_match_item(m, match_category, series_name)
-        except Exception as e:
-            print("Endpoint API Fetch Error:", e)
-
-    fetch_endpoint_data("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/live")
-    fetch_endpoint_data("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/recent")
-    fetch_endpoint_data("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/upcoming")
-
-    return matches_data
-
-@app.route('/')
-def index():
-    try:
-        files = FileRecord.query.all()
-    except Exception:
-        files = []
-    is_admin = session.get('is_admin', False)
-    cricket_data = fetch_real_cricket_data()
-    return render_template('index.html', files=files, is_admin=is_admin, cricket_data=cricket_data)
-
-@app.route('/admin', methods=['GET', 'POST'])
-def admin_login():
-    if request.method == 'POST':
-        password = request.form.get('password')
-        admin_pass = os.environ.get('ADMIN_PASSWORD', 'admin123')
-        if password == admin_pass:
-            session['is_admin'] = True
-            flash('Admin Access Granted!')
-            return redirect(url_for('index'))
-        else:
-            flash('Incorrect Admin Password!')
-    return render_template('admin.html')
-
-@app.route('/logout')
-def logout():
-    session.pop('is_admin', None)
-    return redirect(url_for('index'))
-
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    if not session.get('is_admin'):
-        return redirect(url_for('index'))
-    title = request.form.get('title')
-    category = request.form.get('category', 'General Cricket')
-    file = request.files.get('file')
-    if file and title:
-        upload_result = cloudinary.uploader.upload(file, resource_type="auto")
-        new_file = FileRecord(
-            title=title,
-            file_url=upload_result['secure_url'],
-            public_id=upload_result['public_id'],
-            category=category
-        )
-        db.session.add(new_file)
-        db.session.commit()
-    return redirect(url_for('index'))
-
-@app.route('/delete/<int:file_id>', methods=['POST'])
-def delete_file(file_id):
-    if not session.get('is_admin'):
-        return redirect(url_for('index'))
-    file_item = FileRecord.query.get_or_404(file_id)
-    cloudinary.uploader.destroy(file_item.public_id, invalidate=True)
-    db.session.delete(file_item)
-    db.session.commit()
-    return redirect(url_for('index'))
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+}
+</script>
+</body>
+</html>
