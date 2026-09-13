@@ -1,0 +1,1 @@
+web: gunicorn RcricData:app
