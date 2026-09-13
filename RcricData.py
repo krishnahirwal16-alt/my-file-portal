@@ -44,7 +44,7 @@ def create_tables_once():
             pass
 
 def format_score_inngs(inng_data):
-    if not inng_data:
+    if not inng_data or not isinstance(inng_data, dict):
         return ""
     runs = inng_data.get('runs', 0)
     wickets = inng_data.get('wickets', 0)
@@ -64,6 +64,45 @@ def parse_ist_date_and_day(timestamp_ms):
     except Exception:
         return "Date N/A"
 
+def extract_live_score(m, team1, team2):
+    m_score = m.get('matchScore', {})
+    score_parts = []
+
+    # Priority 1: Standard matchScore structure
+    if m_score:
+        t1_score = m_score.get('team1Score', {})
+        t2_score = m_score.get('team2Score', {})
+
+        t1_i1 = format_score_inngs(t1_score.get('inngs1'))
+        t1_i2 = format_score_inngs(t1_score.get('inngs2'))
+        t2_i1 = format_score_inngs(t2_score.get('inngs1'))
+        t2_i2 = format_score_inngs(t2_score.get('inngs2'))
+
+        if t1_i1:
+            score_parts.append(f"{team1}: {t1_i1}" + (f" & {t1_i2}" if t1_i2 else ""))
+        if t2_i1:
+            score_parts.append(f"{team2}: {t2_i1}" + (f" & {t2_i2}" if t2_i2 else ""))
+
+    # Priority 2: Miniscore / InningDetails extraction
+    if not score_parts:
+        miniscore = m.get('miniscore', {}) or m.get('matchScoreWrapper', {}).get('miniscore', {})
+        if miniscore:
+            innings_list = miniscore.get('inningsScoreList', []) or miniscore.get('matchScore', [])
+            if isinstance(innings_list, list):
+                for inn in innings_list:
+                    t_name = inn.get('batTeamName') or inn.get('teamName') or 'Batting Team'
+                    r = inn.get('runs', 0)
+                    w = inn.get('wickets', 0)
+                    o = inn.get('overs', '')
+                    if o:
+                        score_parts.append(f"{t_name}: {r}/{w} ({o} ov)")
+                    else:
+                        score_parts.append(f"{t_name}: {r}/{w}")
+
+    if score_parts:
+        return " | ".join(score_parts)
+    return ""
+
 def fetch_real_cricket_data():
     api_key = os.environ.get('RAPIDAPI_KEY')
     matches_data = {"live": [], "upcoming": [], "finished": []}
@@ -80,7 +119,6 @@ def fetch_real_cricket_data():
 
     def process_match_item(m, match_category="Other", series_name="Cricket Series"):
         m_info = m.get('matchInfo', {})
-        m_score = m.get('matchScore', {})
         match_id = m_info.get('matchId')
 
         if not match_id or match_id in processed_match_ids:
@@ -96,38 +134,9 @@ def fetch_real_cricket_data():
         start_time_ms = m_info.get('startDate') or m_info.get('matchStartTimestamp')
         match_date_ist = parse_ist_date_and_day(start_time_ms)
 
-        # Enhanced Real-time Score Extraction Logic
-        score_str = ""
-        if m_score:
-            t1_score = m_score.get('team1Score', {})
-            t2_score = m_score.get('team2Score', {})
+        score_str = extract_live_score(m, team1, team2)
 
-            t1_i1 = format_score_inngs(t1_score.get('inngs1'))
-            t1_i2 = format_score_inngs(t1_score.get('inngs2'))
-            t2_i1 = format_score_inngs(t2_score.get('inngs1'))
-            t2_i2 = format_score_inngs(t2_score.get('inngs2'))
-
-            if match_format == 'TEST':
-                t1_full = f"{t1_i1}" + (f" & {t1_i2}" if t1_i2 else "")
-                t2_full = f"{t2_i1}" + (f" & {t2_i2}" if t2_i2 else "")
-                score_parts = [p for p in [f"{team1}: {t1_full}" if t1_full else "", f"{team2}: {t2_full}" if t2_full else ""] if p]
-                score_str = " | ".join(score_parts)
-            else:
-                score_parts = [p for p in [f"{team1}: {t1_i1}" if t1_i1 else "", f"{team2}: {t2_i1}" if t2_i1 else ""] if p]
-                score_str = " | ".join(score_parts)
-
-        # Fallback to Miniscore if standard matchScore is empty during live play
-        if not score_str:
-            miniscore = m.get('miniscore', {})
-            if miniscore:
-                bat_team = miniscore.get('batsmanData', {}).get('teamName', '')
-                runs = miniscore.get('batsmanData', {}).get('runs', '')
-                wickets = miniscore.get('batsmanData', {}).get('wickets', '')
-                overs = miniscore.get('overs', '')
-                if bat_team and runs:
-                    score_str = f"{bat_team}: {runs}/{wickets} ({overs} ov)"
-
-        display_score = score_str if score_str else "Toss / Yet to Bat"
+        display_score = score_str if score_str else ("Toss Done / Match In Progress" if "opt to" in status.lower() or "elected to" in status.lower() else "Match Starting Soon")
         display_status = status if (status and status.strip().lower() != display_score.strip().lower()) else ""
 
         venue_info = m_info.get('venueInfo', {})
