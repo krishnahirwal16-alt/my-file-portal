@@ -60,7 +60,6 @@ def parse_ist_date_and_day(timestamp_ms):
         ts = int(timestamp_ms) / 1000.0
         utc_dt = datetime.fromtimestamp(ts, tz=timezone.utc)
         ist_dt = utc_dt.astimezone(timezone(timedelta(hours=5, minutes=30)))
-        # Format: Sunday, 13 Sep 2026 at 11:30 PM IST
         return ist_dt.strftime("%A, %d %b %Y | %I:%M %p IST")
     except Exception:
         return "Date N/A"
@@ -79,7 +78,7 @@ def fetch_real_cricket_data():
 
     processed_match_ids = set()
 
-    def process_matches_endpoint(url, force_category=None):
+    def process_matches_endpoint(url):
         try:
             res = requests.get(url, headers=headers, timeout=10)
             if res.status_code == 200:
@@ -134,7 +133,7 @@ def fetch_real_cricket_data():
                                     score_str = " | ".join(score_parts)
 
                             if not score_str:
-                                score_str = "Score Not Started / Toss Done"
+                                score_str = "Match Starting Soon / Toss Done"
 
                             venue_info = m_info.get('venueInfo', {})
                             ground = venue_info.get('ground', '')
@@ -153,29 +152,29 @@ def fetch_real_cricket_data():
                             }
 
                             status_lower = status.lower()
+
+                            # STRICT MATCH FILTERING
+                            is_finished = (
+                                "complete" in state or "result" in state or 
+                                "won" in status_lower or "beat" in status_lower or 
+                                "drawn" in status_lower or "tied" in status_lower or 
+                                "abandon" in status_lower or "no result" in status_lower
+                            )
                             
-                            if force_category == "live":
-                                matches_data["live"].append(item)
-                            elif force_category == "upcoming":
+                            is_upcoming = "upcoming" in state or "preview" in state
+
+                            if is_finished:
+                                matches_data["finished"].append(item)
+                            elif is_upcoming:
                                 matches_data["upcoming"].append(item)
                             else:
-                                is_finished = "complete" in state or "result" in state or "won" in status_lower or "drawn" in status_lower or "abandon" in status_lower
-                                is_live = ("in progress" in state or "live" in state or "toss" in status_lower 
-                                           or "opt to" in status_lower or "innings" in status_lower or "break" in status_lower 
-                                           or "bat" in status_lower or "bowl" in status_lower or "delay" in status_lower 
-                                           or "stumps" in status_lower or "rain" in status_lower)
+                                matches_data["live"].append(item)
 
-                                if is_live:
-                                    matches_data["live"].append(item)
-                                elif is_finished:
-                                    matches_data["finished"].append(item)
-                                else:
-                                    matches_data["upcoming"].append(item)
         except Exception as e:
             print("API Exception:", e)
 
-    # Calling endpoints in sequence
-    process_matches_endpoint("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/live", force_category="live")
+    # Sequence call without forced categories to maintain strict filter logic
+    process_matches_endpoint("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/live")
     process_matches_endpoint("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/recent")
     process_matches_endpoint("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/upcoming")
 
