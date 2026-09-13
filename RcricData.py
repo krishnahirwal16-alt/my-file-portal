@@ -16,14 +16,8 @@ if db_url.startswith("postgres://"):
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-db = SQLAlchemy(app)
-
-# Cloudinary Configuration
-cloudinary.config(
-    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
-    api_key=os.environ.get('CLOUDINARY_API_KEY'),
-    api_secret=os.environ.get('CLOUDINARY_API_SECRET')
-)
+db = SQLAlchemy()
+db.init_app(app)
 
 class FileRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -33,7 +27,10 @@ class FileRecord(db.Model):
     category = db.Column(db.String(100), default="General Cricket")
 
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+    except Exception as e:
+        print("Database initialization error:", e)
 
 # Live Cricket Scores Helper Function
 def fetch_live_cricket_data():
