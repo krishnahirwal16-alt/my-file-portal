@@ -3,213 +3,217 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CrixData Hub - Live Analytics & Vault</title>
+    <title>CrixData Hub</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #0d1117; color: #c9d1d9; }
-        header { background: #161b22; padding: 15px 30px; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; }
-        .logo { font-size: 24px; font-weight: bold; color: #58a6ff; }
-        .container { max-width: 1240px; margin: 20px auto; padding: 0 15px; }
-        
-        .main-tabs, .match-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #30363d; padding-bottom: 10px; flex-wrap: wrap; }
-        .tab-btn { background: #21262d; border: 1px solid #30363d; color: #8b949e; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
-        .tab-btn.active { background: #1f6feb; color: white; border-color: #1f6feb; }
-        
-        .tab-content, .subtab-content { display: none; }
-        .tab-content.active, .subtab-content.active { display: block; }
-
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; }
-        .card { background: #161b22; border: 1px solid #30363d; padding: 16px; border-radius: 8px; position: relative; }
-        .badge-container { position: absolute; top: 12px; right: 12px; display: flex; gap: 5px; }
-        .format-badge { background: #238636; color: white; font-size: 10px; padding: 3px 6px; border-radius: 4px; font-weight: bold; }
-        .category-badge { background: #8957e5; color: white; font-size: 10px; padding: 3px 6px; border-radius: 4px; font-weight: bold; }
-        
-        .card h4 { margin: 0 0 5px 0; color: #f0f6fc; font-size: 16px; padding-right: 120px; }
-        .series { font-size: 12px; color: #8b949e; margin-bottom: 6px; font-weight: 500; }
-        .match-date { font-size: 12px; color: #e3b341; margin-bottom: 10px; font-weight: bold; background: #161b22; padding: 4px 8px; border-radius: 4px; border: 1px dashed #e3b341; display: inline-block; }
-        .score { font-size: 14px; font-weight: bold; color: #3fb950; margin: 10px 0; background: #0d1117; padding: 9px; border-radius: 5px; border: 1px solid #21262d; line-height: 1.4; }
-        .status { font-size: 13px; color: #d29922; font-weight: 600; }
-        .venue { font-size: 11px; color: #6e7681; margin-top: 8px; }
-
-        form { background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-bottom: 25px; }
-        input[type="text"], input[type="file"], select { width: 95%; padding: 10px; margin: 8px 0 15px 0; background: #0d1117; border: 1px solid #30363d; color: white; border-radius: 5px; }
-        button { background: #238636; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; background: #161b22; border-radius: 8px; overflow: hidden; }
-        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #30363d; }
-        th { background: #21262d; color: #f0f6fc; }
-        a.view-link { color: #58a6ff; text-decoration: none; font-weight: bold; }
+        body { background-color: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', sans-serif; }
+        .navbar { background-color: #161b22; border-bottom: 1px solid #30363d; }
+        .card { background-color: #161b22; border: 1px solid #30363d; border-radius: 10px; }
+        .nav-pills .nav-link { color: #8b949e; border-radius: 8px; font-weight: 600; }
+        .nav-pills .nav-link.active { background-color: #238636; color: white; }
+        .badge-live { background-color: #da3633; color: white; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+        .search-box { background-color: #0d1117; border: 1px solid #30363d; color: #c9d1d9; }
+        .search-box:focus { background-color: #0d1117; color: white; border-color: #238636; box-shadow: none; }
     </style>
 </head>
 <body>
 
-    <header>
-        <div class="logo">🏏 CrixData Hub</div>
-        <div>
-            {% if is_admin %}
-                <span style="color:#3fb950; margin-right:15px;">● Admin Logged In</span>
-                <a href="/logout" style="color:#f85149; text-decoration:none; font-weight:bold;">Logout</a>
-            {% else %}
-                <a href="/admin" style="color:#8b949e; text-decoration:none;">Admin Login</a>
-            {% endif %}
-        </div>
-    </header>
-
-    <div class="container">
-        
-        <div class="main-tabs">
-            <button class="tab-btn active" onclick="switchMainTab('scores', this)">📊 Real-Time Matches</button>
-            <button class="tab-btn" onclick="switchMainTab('vault', this)">📁 Cricket Data Vault</button>
-        </div>
-
-        <!-- TAB 1: REAL-TIME MATCHES -->
-        <div id="scores-tab" class="tab-content active">
-            
-            <div class="match-tabs">
-                <button class="tab-btn active" onclick="switchSubTab('live', this)">🔴 Live Matches ({{ cricket_data.live|length if cricket_data else 0 }})</button>
-                <button class="tab-btn" onclick="switchSubTab('upcoming', this)">📅 Upcoming Matches ({{ cricket_data.upcoming|length if cricket_data else 0 }})</button>
-                <button class="tab-btn" onclick="switchSubTab('finished', this)">✅ Finished Matches ({{ cricket_data.finished|length if cricket_data else 0 }})</button>
-            </div>
-
-            <!-- LIVE SUBTAB -->
-            <div id="live-subtab" class="subtab-content active">
-                <div class="grid">
-                    {% if cricket_data and cricket_data.live %}
-                        {% for match in cricket_data.live %}
-                        <div class="card">
-                            <div class="badge-container">
-                                <span class="category-badge">{{ match.category }}</span>
-                                <span class="format-badge">{{ match.format }}</span>
-                            </div>
-                            <h4>{{ match.title }}</h4>
-                            <div class="series">🏆 {{ match.series }}</div>
-                            <div class="match-date">⏰ {{ match.date }}</div>
-                            <div class="score">⚡ {{ match.score }}</div>
-                            <div class="status">📌 {{ match.status }}</div>
-                            <div class="venue">📍 {{ match.venue }}</div>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <div style="padding:20px; color:#8b949e; background:#161b22; border-radius:8px; border:1px solid #30363d;">No live matches active right now.</div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- UPCOMING SUBTAB -->
-            <div id="upcoming-subtab" class="subtab-content">
-                <div class="grid">
-                    {% if cricket_data and cricket_data.upcoming %}
-                        {% for match in cricket_data.upcoming %}
-                        <div class="card">
-                            <div class="badge-container">
-                                <span class="category-badge">{{ match.category }}</span>
-                                <span class="format-badge">{{ match.format }}</span>
-                            </div>
-                            <h4>{{ match.title }}</h4>
-                            <div class="series">🏆 {{ match.series }}</div>
-                            <div class="match-date">🗓️ {{ match.date }}</div>
-                            <div class="status" style="color:#58a6ff;">📌 Status: {{ match.status }}</div>
-                            <div class="venue">📍 {{ match.venue }}</div>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <div style="padding:20px; color:#8b949e; background:#161b22; border-radius:8px; border:1px solid #30363d;">No upcoming matches scheduled right now.</div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- FINISHED SUBTAB -->
-            <div id="finished-subtab" class="subtab-content">
-                <div class="grid">
-                    {% if cricket_data and cricket_data.finished %}
-                        {% for match in cricket_data.finished %}
-                        <div class="card">
-                            <div class="badge-container">
-                                <span class="category-badge">{{ match.category }}</span>
-                                <span class="format-badge">{{ match.format }}</span>
-                            </div>
-                            <h4>{{ match.title }}</h4>
-                            <div class="series">🏆 {{ match.series }}</div>
-                            <div class="match-date">📅 {{ match.date }}</div>
-                            <div class="score">📊 {{ match.score }}</div>
-                            <div class="status" style="color:#3fb950;">🏁 {{ match.status }}</div>
-                            <div class="venue">📍 {{ match.venue }}</div>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <div style="padding:20px; color:#8b949e; background:#161b22; border-radius:8px; border:1px solid #30363d;">No completed match records.</div>
-                    {% endif %}
-                </div>
-            </div>
-
-        </div>
-
-        <!-- TAB 2: DATA VAULT -->
-        <div id="vault-tab" class="tab-content">
-            {% if is_admin %}
-            <form action="/upload" method="POST" enctype="multipart/form-data">
-                <h3 style="margin-top:0; color:#f0f6fc;">Upload Cricket Records</h3>
-                <input type="text" name="title" placeholder="Record Title (e.g., Pitch & Boundary Stats)" required>
-                <select name="category">
-                    <option value="Match Analytics">Match Analytics</option>
-                    <option value="Player Matchups">Player Matchups</option>
-                    <option value="Pitch & Venue Report">Pitch & Venue Report</option>
-                    <option value="Database/Excel">Database / Excel</option>
-                </select>
-                <input type="file" name="file" required>
-                <button type="submit">Upload File</button>
-            </form>
-            {% endif %}
-
-            <h3 style="color:#f0f6fc;">Stored Cricket Files</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Title</th>
-                        <th>Category</th>
-                        <th>Access</th>
-                        {% if is_admin %}<th>Action</th>{% endif %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for file in files %}
-                    <tr>
-                        <td style="color:#f0f6fc;">{{ file.title }}</td>
-                        <td><span style="background:#21262d; padding:4px 8px; border-radius:4px; font-size:12px;">{{ file.category }}</span></td>
-                        <td><a href="{{ file.file_url }}" target="_blank" class="view-link">Open File ↗</a></td>
-                        {% if is_admin %}
-                        <td>
-                            <form action="/delete/{{ file.id }}" method="POST" style="margin:0; background:none; border:none;">
-                                <button type="submit" style="background:#da3633; padding:5px 10px; font-size:12px;">Delete</button>
-                            </form>
-                        </td>
-                        {% endif %}
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="4" style="text-align:center; color:#8b949e;">No files uploaded.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
+<nav class="navbar navbar-expand-lg navbar-dark mb-4 px-4">
+    <a class="navbar-brand fw-bold text-info fs-4" href="/"><i class="fa-solid fa-cricket-bat-ball me-2"></i>CrixData Hub</a>
+    <div class="ms-auto">
+        {% if is_admin %}
+            <a href="/logout" class="btn btn-outline-danger btn-sm me-2">Logout Admin</a>
+        {% else %}
+            <a href="/admin" class="btn btn-outline-light btn-sm">Admin Login</a>
+        {% endif %}
     </div>
+</nav>
 
-    <script>
-        function switchMainTab(tabName, btnElement) {
-            document.querySelectorAll('.main-tabs .tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.container > .tab-content').forEach(el => el.classList.remove('active'));
-            
-            btnElement.classList.add('active');
-            document.getElementById(tabName + '-tab').classList.add('active');
-        }
+<div class="container pb-5">
 
-        function switchSubTab(subTabName, btnElement) {
-            document.querySelectorAll('.match-tabs .tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.subtab-content').forEach(el => el.classList.remove('active'));
+    <!-- Top Navigation Tabs -->
+    <ul class="nav nav-pills mb-3" id="mainTab" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active me-2" id="realtime-tab" data-bs-toggle="tab" data-bs-target="#realtime" type="button"><i class="fa-solid fa-tower-broadcast me-2"></i>Real-Time Matches</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" id="vault-tab" data-bs-toggle="tab" data-bs-target="#vault" type="button"><i class="fa-solid fa-folder-open me-2"></i>Cricket Data Vault</button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- REAL TIME MATCHES TAB -->
+        <div class="tab-pane fade show active" id="realtime">
             
-            btnElement.classList.add('active');
-            document.getElementById(subTabName + '-subtab').classList.add('active');
+            <!-- Live Search Bar -->
+            <div class="row my-3">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text bg-dark text-secondary border-secondary"><i class="fa-solid fa-magnifying-glass"></i></span>
+                        <input type="text" id="matchSearchInput" class="form-control search-box" placeholder="Search team, tournament or venue..." onkeyup="filterMatches()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Match Status Sub-Tabs -->
+            <ul class="nav nav-pills mb-4" id="matchSubTab" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active me-2" data-bs-toggle="tab" data-bs-target="#live-matches" type="button">
+                        <span class="badge badge-live me-1">●</span> Live Matches ({{ cricket_data.live|length }})
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link me-2" data-bs-toggle="tab" data-bs-target="#upcoming-matches" type="button">
+                        📅 Upcoming Matches ({{ cricket_data.upcoming|length }})
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#finished-matches" type="button">
+                        ✅ Finished Matches ({{ cricket_data.finished|length }})
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+                <!-- LIVE -->
+                <div class="tab-pane fade show active" id="live-matches">
+                    <div class="row g-3" id="liveMatchContainer">
+                        {% for match in cricket_data.live %}
+                        <div class="col-md-4 match-card-item">
+                            <div class="card p-3 h-100">
+                                <div class="d-flex justify-content-between">
+                                    <span class="badge bg-secondary mb-2">{{ match.category }}</span>
+                                    <span class="badge bg-success mb-2">{{ match.format }}</span>
+                                </div>
+                                <h6 class="fw-bold text-white mb-1 match-title">{{ match.title }}</h6>
+                                <small class="text-muted d-block mb-2 match-series">🏆 {{ match.series }}</small>
+                                <div class="p-2 rounded bg-dark border border-secondary text-warning mb-2 match-score">
+                                    ⚡ {{ match.score }}
+                                </div>
+                                {% if match.status %}
+                                <div class="small text-info mb-1">📌 {{ match.status }}</div>
+                                {% endif %}
+                                <div class="small text-secondary">📍 {{ match.venue }}</div>
+                                <div class="small text-muted mt-1">⏰ {{ match.date }}</div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <p class="text-muted">No live matches currently in progress.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- UPCOMING -->
+                <div class="tab-pane fade" id="upcoming-matches">
+                    <div class="row g-3" id="upcomingMatchContainer">
+                        {% for match in cricket_data.upcoming %}
+                        <div class="col-md-4 match-card-item">
+                            <div class="card p-3 h-100">
+                                <div class="d-flex justify-content-between">
+                                    <span class="badge bg-secondary mb-2">{{ match.category }}</span>
+                                    <span class="badge bg-info mb-2">{{ match.format }}</span>
+                                </div>
+                                <h6 class="fw-bold text-white mb-1 match-title">{{ match.title }}</h6>
+                                <small class="text-muted d-block mb-2 match-series">🏆 {{ match.series }}</small>
+                                <div class="small text-info mb-1">⏰ {{ match.date }}</div>
+                                <div class="small text-secondary">📍 {{ match.venue }}</div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <p class="text-muted">No upcoming matches scheduled.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- FINISHED -->
+                <div class="tab-pane fade" id="finished-matches">
+                    <div class="row g-3" id="finishedMatchContainer">
+                        {% for match in cricket_data.finished %}
+                        <div class="col-md-4 match-card-item">
+                            <div class="card p-3 h-100">
+                                <div class="d-flex justify-content-between">
+                                    <span class="badge bg-secondary mb-2">{{ match.category }}</span>
+                                    <span class="badge bg-dark mb-2">{{ match.format }}</span>
+                                </div>
+                                <h6 class="fw-bold text-white mb-1 match-title">{{ match.title }}</h6>
+                                <small class="text-muted d-block mb-2 match-series">🏆 {{ match.series }}</small>
+                                <div class="p-2 rounded bg-dark border border-secondary text-success mb-2 match-score">
+                                    ⚡ {{ match.score }}
+                                </div>
+                                {% if match.status %}
+                                <div class="small text-info mb-1">📌 {{ match.status }}</div>
+                                {% endif %}
+                                <div class="small text-secondary">📍 {{ match.venue }}</div>
+                                <div class="small text-muted mt-1">⏰ {{ match.date }}</div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <p class="text-muted">No completed matches available.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CRICKET DATA VAULT TAB -->
+        <div class="tab-pane fade" id="vault">
+            {% if is_admin %}
+            <div class="card p-3 mb-4">
+                <h5>Upload New File</h5>
+                <form action="/upload" method="POST" enctype="multipart/form-data">
+                    <div class="row g-2">
+                        <div class="col-md-5">
+                            <input type="text" name="title" class="form-control" placeholder="File Title" required>
+                        </div>
+                        <div class="col-md-4">
+                            <input type="file" name="file" class="form-control" required>
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-success w-100">Upload</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+
+            <div class="row g-3">
+                {% for file in files %}
+                <div class="col-md-4">
+                    <div class="card p-3">
+                        <h6 class="text-white">{{ file.title }}</h6>
+                        <a href="{{ file.file_url }}" target="_blank" class="btn btn-outline-info btn-sm mt-2">View / Download</a>
+                        {% if is_admin %}
+                        <form action="/delete/{{ file.id }}" method="POST" class="mt-2">
+                            <button type="submit" class="btn btn-sm btn-danger w-100">Delete</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-muted">No files uploaded in vault.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function filterMatches() {
+    let input = document.getElementById('matchSearchInput').value.toLowerCase();
+    let cards = document.getElementsByClassName('match-card-item');
+
+    for (let i = 0; i < cards.length; i++) {
+        let text = cards[i].innerText.toLowerCase();
+        if (text.includes(input)) {
+            cards[i].style.display = "";
+        } else {
+            cards[i].style.display = "none";
         }
-    </script>
+    }
+}
+</script>
 </body>
 </html>
