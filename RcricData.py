@@ -78,7 +78,7 @@ def fetch_real_cricket_data():
 
     processed_match_ids = set()
 
-    def process_matches_endpoint(url):
+    def process_matches_endpoint(url, default_category=None):
         try:
             res = requests.get(url, headers=headers, timeout=10)
             if res.status_code == 200:
@@ -107,12 +107,12 @@ def fetch_real_cricket_data():
                             team2 = m_info.get('team2', {}).get('teamName', 'Team 2')
                             match_format = (m_info.get('matchFormat') or m_info.get('format', 'CRICKET')).upper()
                             status = m_info.get('status', '')
-                            state = (m_info.get('state') or '').lower()
+                            state = (m_info.get('state') or '').lower().strip()
 
                             start_time_ms = m_info.get('startDate') or m_info.get('matchStartTimestamp')
                             match_date_ist = parse_ist_date_and_day(start_time_ms)
 
-                            # Detailed Score Construction (Overs + Multiple Innings)
+                            # Detailed Score Construction
                             score_str = ""
                             if m_score:
                                 t1_score = m_score.get('team1Score', {})
@@ -133,7 +133,7 @@ def fetch_real_cricket_data():
                                     score_str = " | ".join(score_parts)
 
                             if not score_str:
-                                score_str = "Match Starting Soon / Toss Done"
+                                score_str = "Live Action / Toss Completed"
 
                             venue_info = m_info.get('venueInfo', {})
                             ground = venue_info.get('ground', '')
@@ -145,7 +145,7 @@ def fetch_real_cricket_data():
                                 "format": match_format,
                                 "category": match_category,
                                 "series": series_name,
-                                "status": status,
+                                "status": status if status else "In Progress",
                                 "score": score_str,
                                 "date": match_date_ist,
                                 "venue": venue
@@ -153,18 +153,20 @@ def fetch_real_cricket_data():
 
                             status_lower = status.lower()
 
-                            # STRICT MATCH FILTERING
+                            # STRICT CATEGORIZATION
                             is_finished = (
                                 "complete" in state or "result" in state or 
-                                "won" in status_lower or "beat" in status_lower or 
+                                "won by" in status_lower or "beat" in status_lower or 
                                 "drawn" in status_lower or "tied" in status_lower or 
-                                "abandon" in status_lower or "no result" in status_lower
+                                "abandoned" in status_lower or "no result" in status_lower
                             )
                             
-                            is_upcoming = "upcoming" in state or "preview" in state
+                            is_upcoming = "upcoming" in state or "preview" in state or "starts at" in status_lower
 
                             if is_finished:
                                 matches_data["finished"].append(item)
+                            elif default_category == "live" or (not is_upcoming and not is_finished):
+                                matches_data["live"].append(item)
                             elif is_upcoming:
                                 matches_data["upcoming"].append(item)
                             else:
@@ -173,9 +175,11 @@ def fetch_real_cricket_data():
         except Exception as e:
             print("API Exception:", e)
 
-    # Sequence call without forced categories to maintain strict filter logic
-    process_matches_endpoint("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/live")
+    # 1. Fetch live matches first with default 'live' priority
+    process_matches_endpoint("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/live", default_category="live")
+    # 2. Fetch recent matches
     process_matches_endpoint("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/recent")
+    # 3. Fetch upcoming matches
     process_matches_endpoint("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/upcoming")
 
     return matches_data
