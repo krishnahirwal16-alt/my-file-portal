@@ -8,7 +8,7 @@
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #0d1117; color: #c9d1d9; }
         header { background: #161b22; padding: 15px 30px; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; }
         .logo { font-size: 24px; font-weight: bold; color: #58a6ff; }
-        .container { max-width: 1200px; margin: 20px auto; padding: 0 15px; }
+        .container { max-width: 1240px; margin: 20px auto; padding: 0 15px; }
         
         .main-tabs, .match-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #30363d; padding-bottom: 10px; flex-wrap: wrap; }
         .tab-btn { background: #21262d; border: 1px solid #30363d; color: #8b949e; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
@@ -17,15 +17,16 @@
         .tab-content, .subtab-content { display: none; }
         .tab-content.active, .subtab-content.active { display: block; }
 
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 15px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; }
         .card { background: #161b22; border: 1px solid #30363d; padding: 16px; border-radius: 8px; position: relative; }
-        .badge-container { position: absolute; top: 12px; right: 12px; display: flex; gap: 4px; }
+        .badge-container { position: absolute; top: 12px; right: 12px; display: flex; gap: 5px; }
         .format-badge { background: #238636; color: white; font-size: 10px; padding: 3px 6px; border-radius: 4px; font-weight: bold; }
         .category-badge { background: #8957e5; color: white; font-size: 10px; padding: 3px 6px; border-radius: 4px; font-weight: bold; }
         
-        .card h4 { margin: 0 0 5px 0; color: #f0f6fc; font-size: 16px; padding-right: 110px; }
-        .series { font-size: 12px; color: #8b949e; margin-bottom: 8px; font-weight: 500; }
-        .score { font-size: 15px; font-weight: bold; color: #3fb950; margin: 10px 0; background: #0d1117; padding: 8px; border-radius: 5px; border: 1px solid #21262d; }
+        .card h4 { margin: 0 0 5px 0; color: #f0f6fc; font-size: 16px; padding-right: 120px; }
+        .series { font-size: 12px; color: #8b949e; margin-bottom: 6px; font-weight: 500; }
+        .match-date { font-size: 11px; color: #e3b341; margin-bottom: 10px; font-weight: bold; }
+        .score { font-size: 14px; font-weight: bold; color: #3fb950; margin: 10px 0; background: #0d1117; padding: 9px; border-radius: 5px; border: 1px solid #21262d; line-height: 1.4; }
         .status { font-size: 13px; color: #d29922; font-weight: 600; }
         .venue { font-size: 11px; color: #6e7681; margin-top: 8px; }
 
@@ -80,13 +81,14 @@
                             </div>
                             <h4>{{ match.title }}</h4>
                             <div class="series">🏆 {{ match.series }}</div>
+                            <div class="match-date">⏰ IST Time: {{ match.date }}</div>
                             <div class="score">⚡ {{ match.score }}</div>
-                            <div class="status">📌 {{ match.status }}</div>
+                            <div class="status">📌 Status: {{ match.status }}</div>
                             <div class="venue">📍 {{ match.venue }}</div>
                         </div>
                         {% endfor %}
                     {% else %}
-                        <div style="padding:20px; color:#8b949e; background:#161b22; border-radius:8px; border:1px solid #30363d;">No matches currently live or refreshing API data...</div>
+                        <div style="padding:20px; color:#8b949e; background:#161b22; border-radius:8px; border:1px solid #30363d;">No live matches active right now.</div>
                     {% endif %}
                 </div>
             </div>
@@ -103,12 +105,13 @@
                             </div>
                             <h4>{{ match.title }}</h4>
                             <div class="series">🏆 {{ match.series }}</div>
+                            <div class="match-date">📅 Scheduled IST: {{ match.date }}</div>
                             <div class="status" style="color:#58a6ff;">⏰ {{ match.status }}</div>
                             <div class="venue">📍 {{ match.venue }}</div>
                         </div>
                         {% endfor %}
                     {% else %}
-                        <div style="padding:20px; color:#8b949e; background:#161b22; border-radius:8px; border:1px solid #30363d;">No upcoming matches indexed right now.</div>
+                        <div style="padding:20px; color:#8b949e; background:#161b22; border-radius:8px; border:1px solid #30363d;">No upcoming matches scheduled right now.</div>
                     {% endif %}
                 </div>
             </div>
@@ -125,13 +128,14 @@
                             </div>
                             <h4>{{ match.title }}</h4>
                             <div class="series">🏆 {{ match.series }}</div>
+                            <div class="match-date">📅 Match Date: {{ match.date }}</div>
                             <div class="score">📊 {{ match.score }}</div>
-                            <div class="status" style="color:#3fb950;">🏁 {{ match.status }}</div>
+                            <div class="status" style="color:#3fb950;">🏁 Result: {{ match.status }}</div>
                             <div class="venue">📍 {{ match.venue }}</div>
                         </div>
                         {% endfor %}
                     {% else %}
-                        <div style="padding:20px; color:#8b949e; background:#161b22; border-radius:8px; border:1px solid #30363d;">No finished match records found.</div>
+                        <div style="padding:20px; color:#8b949e; background:#161b22; border-radius:8px; border:1px solid #30363d;">No completed match records.</div>
                     {% endif %}
                 </div>
             </div>
