@@ -3,39 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CrixData - Cricket Live Analytics & File Vault</title>
+    <title>CrixData Hub - Live Analytics & Vault</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background-color: #0d1117; color: #c9d1d9; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #0d1117; color: #c9d1d9; }
         header { background: #161b22; padding: 15px 30px; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; }
         .logo { font-size: 24px; font-weight: bold; color: #58a6ff; }
-        .container { max-width: 1100px; margin: 20px auto; padding: 0 15px; }
+        .container { max-width: 1200px; margin: 20px auto; padding: 0 15px; }
         
-        .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #30363d; padding-bottom: 10px; }
-        .tab-btn { background: #21262d; border: 1px solid #30363d; color: #8b949e; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 600; }
+        .main-tabs, .match-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #30363d; padding-bottom: 10px; flex-wrap: wrap; }
+        .tab-btn { background: #21262d; border: 1px solid #30363d; color: #8b949e; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
         .tab-btn.active { background: #1f6feb; color: white; border-color: #1f6feb; }
         
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
+        .tab-content, .subtab-content { display: none; }
+        .tab-content.active, .subtab-content.active { display: block; }
 
-        /* Cricket Score Cards */
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px; }
-        .card { background: #161b22; border: 1px solid #30363d; padding: 18px; border-radius: 8px; }
-        .card h4 { margin: 0 0 10px 0; color: #f0f6fc; font-size: 16px; }
-        .score { font-size: 15px; font-weight: bold; color: #3fb950; margin: 8px 0; }
-        .status { font-size: 13px; color: #8b949e; }
-        .venue { font-size: 12px; color: #6e7681; margin-top: 5px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 15px; }
+        .card { background: #161b22; border: 1px solid #30363d; padding: 16px; border-radius: 8px; position: relative; }
+        .badge-container { position: absolute; top: 12px; right: 12px; display: flex; gap: 4px; }
+        .format-badge { background: #238636; color: white; font-size: 10px; padding: 3px 6px; border-radius: 4px; font-weight: bold; }
+        .category-badge { background: #8957e5; color: white; font-size: 10px; padding: 3px 6px; border-radius: 4px; font-weight: bold; }
+        
+        .card h4 { margin: 0 0 5px 0; color: #f0f6fc; font-size: 16px; padding-right: 110px; }
+        .series { font-size: 12px; color: #8b949e; margin-bottom: 8px; font-weight: 500; }
+        .score { font-size: 15px; font-weight: bold; color: #3fb950; margin: 10px 0; background: #0d1117; padding: 8px; border-radius: 5px; border: 1px solid #21262d; }
+        .status { font-size: 13px; color: #d29922; font-weight: 600; }
+        .venue { font-size: 11px; color: #6e7681; margin-top: 8px; }
 
-        /* Forms & Tables */
         form { background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-bottom: 25px; }
         input[type="text"], input[type="file"], select { width: 95%; padding: 10px; margin: 8px 0 15px 0; background: #0d1117; border: 1px solid #30363d; color: white; border-radius: 5px; }
         button { background: #238636; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #2ea043; }
-        
         table { width: 100%; border-collapse: collapse; background: #161b22; border-radius: 8px; overflow: hidden; }
         th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #30363d; }
         th { background: #21262d; color: #f0f6fc; }
         a.view-link { color: #58a6ff; text-decoration: none; font-weight: bold; }
-        .delete-btn { background: #da3633; padding: 6px 12px; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -44,64 +44,118 @@
         <div class="logo">🏏 CrixData Hub</div>
         <div>
             {% if is_admin %}
-                <span style="color:#3fb950; margin-right:15px; font-size:14px;">● Admin Access</span>
+                <span style="color:#3fb950; margin-right:15px;">● Admin Logged In</span>
                 <a href="/logout" style="color:#f85149; text-decoration:none; font-weight:bold;">Logout</a>
             {% else %}
-                <a href="/admin" style="color:#8b949e; text-decoration:none; font-size:14px;">Admin Portal</a>
+                <a href="/admin" style="color:#8b949e; text-decoration:none;">Admin Login</a>
             {% endif %}
         </div>
     </header>
 
     <div class="container">
         
-        <div class="nav-tabs">
-            <button class="tab-btn active" onclick="switchTab('scores')">📊 Live Scores & Analytics</button>
-            <button class="tab-btn" onclick="switchTab('vault')">📁 Cricket Data Vault</button>
+        <div class="main-tabs">
+            <button class="tab-btn active" onclick="switchMainTab('scores', this)">📊 Real-Time Matches</button>
+            <button class="tab-btn" onclick="switchMainTab('vault', this)">📁 Cricket Data Vault</button>
         </div>
 
-        <!-- TAB 1: LIVE SCORES -->
+        <!-- TAB 1: REAL-TIME MATCHES -->
         <div id="scores-tab" class="tab-content active">
-            <h3 style="color:#f0f6fc; margin-bottom:15px;">Recent & Live Match Updates</h3>
-            <div class="grid">
-                {% if live_scores and live_scores.matches %}
-                    {% for match in live_scores.matches %}
-                    <div class="card">
-                        <h4>{{ match.title }}</h4>
-                        <div class="score">{{ match.score }}</div>
-                        <div class="status">Status: {{ match.status }}</div>
-                        <div class="venue">📍 {{ match.venue }}</div>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="card">No live matches available right now.</div>
-                {% endif %}
+            
+            <div class="match-tabs">
+                <button class="tab-btn active" onclick="switchSubTab('live', this)">🔴 Live Matches ({{ cricket_data.live|length if cricket_data else 0 }})</button>
+                <button class="tab-btn" onclick="switchSubTab('upcoming', this)">📅 Upcoming Matches ({{ cricket_data.upcoming|length if cricket_data else 0 }})</button>
+                <button class="tab-btn" onclick="switchSubTab('finished', this)">✅ Finished Matches ({{ cricket_data.finished|length if cricket_data else 0 }})</button>
             </div>
+
+            <!-- LIVE SUBTAB -->
+            <div id="live-subtab" class="subtab-content active">
+                <div class="grid">
+                    {% if cricket_data and cricket_data.live %}
+                        {% for match in cricket_data.live %}
+                        <div class="card">
+                            <div class="badge-container">
+                                <span class="category-badge">{{ match.category }}</span>
+                                <span class="format-badge">{{ match.format }}</span>
+                            </div>
+                            <h4>{{ match.title }}</h4>
+                            <div class="series">🏆 {{ match.series }}</div>
+                            <div class="score">⚡ {{ match.score }}</div>
+                            <div class="status">📌 {{ match.status }}</div>
+                            <div class="venue">📍 {{ match.venue }}</div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div style="padding:20px; color:#8b949e; background:#161b22; border-radius:8px; border:1px solid #30363d;">No matches currently live or refreshing API data...</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- UPCOMING SUBTAB -->
+            <div id="upcoming-subtab" class="subtab-content">
+                <div class="grid">
+                    {% if cricket_data and cricket_data.upcoming %}
+                        {% for match in cricket_data.upcoming %}
+                        <div class="card">
+                            <div class="badge-container">
+                                <span class="category-badge">{{ match.category }}</span>
+                                <span class="format-badge">{{ match.format }}</span>
+                            </div>
+                            <h4>{{ match.title }}</h4>
+                            <div class="series">🏆 {{ match.series }}</div>
+                            <div class="status" style="color:#58a6ff;">⏰ {{ match.status }}</div>
+                            <div class="venue">📍 {{ match.venue }}</div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div style="padding:20px; color:#8b949e; background:#161b22; border-radius:8px; border:1px solid #30363d;">No upcoming matches indexed right now.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- FINISHED SUBTAB -->
+            <div id="finished-subtab" class="subtab-content">
+                <div class="grid">
+                    {% if cricket_data and cricket_data.finished %}
+                        {% for match in cricket_data.finished %}
+                        <div class="card">
+                            <div class="badge-container">
+                                <span class="category-badge">{{ match.category }}</span>
+                                <span class="format-badge">{{ match.format }}</span>
+                            </div>
+                            <h4>{{ match.title }}</h4>
+                            <div class="series">🏆 {{ match.series }}</div>
+                            <div class="score">📊 {{ match.score }}</div>
+                            <div class="status" style="color:#3fb950;">🏁 {{ match.status }}</div>
+                            <div class="venue">📍 {{ match.venue }}</div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div style="padding:20px; color:#8b949e; background:#161b22; border-radius:8px; border:1px solid #30363d;">No finished match records found.</div>
+                    {% endif %}
+                </div>
+            </div>
+
         </div>
 
         <!-- TAB 2: DATA VAULT -->
         <div id="vault-tab" class="tab-content">
             {% if is_admin %}
             <form action="/upload" method="POST" enctype="multipart/form-data">
-                <h3 style="margin-top:0; color:#f0f6fc;">Upload Cricket Records / Files</h3>
-                <label>Record Title:</label>
-                <input type="text" name="title" placeholder="e.g. IPL 2026 Venue & Pitch Analytics Sheet" required>
-                
-                <label>Category:</label>
+                <h3 style="margin-top:0; color:#f0f6fc;">Upload Cricket Records</h3>
+                <input type="text" name="title" placeholder="Record Title (e.g., Pitch & Boundary Stats)" required>
                 <select name="category">
                     <option value="Match Analytics">Match Analytics</option>
                     <option value="Player Matchups">Player Matchups</option>
                     <option value="Pitch & Venue Report">Pitch & Venue Report</option>
                     <option value="Database/Excel">Database / Excel</option>
                 </select>
-
-                <label>Select File:</label>
                 <input type="file" name="file" required>
-
-                <button type="submit">Upload to CrixData Vault</button>
+                <button type="submit">Upload File</button>
             </form>
             {% endif %}
 
-            <h3 style="color:#f0f6fc;">Stored Cricket Files & Records</h3>
+            <h3 style="color:#f0f6fc;">Stored Cricket Files</h3>
             <table>
                 <thead>
                     <tr>
@@ -114,20 +168,20 @@
                 <tbody>
                     {% for file in files %}
                     <tr>
-                        <td style="color:#f0f6fc; font-weight:600;">{{ file.title }}</td>
+                        <td style="color:#f0f6fc;">{{ file.title }}</td>
                         <td><span style="background:#21262d; padding:4px 8px; border-radius:4px; font-size:12px;">{{ file.category }}</span></td>
                         <td><a href="{{ file.file_url }}" target="_blank" class="view-link">Open File ↗</a></td>
                         {% if is_admin %}
                         <td>
-                            <form action="/delete/{{ file.id }}" method="POST" style="margin:0; padding:0; background:none; border:none;">
-                                <button type="submit" class="delete-btn">Delete</button>
+                            <form action="/delete/{{ file.id }}" method="POST" style="margin:0; background:none; border:none;">
+                                <button type="submit" style="background:#da3633; padding:5px 10px; font-size:12px;">Delete</button>
                             </form>
                         </td>
                         {% endif %}
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="4" style="text-align:center; color:#8b949e;">No cricket records stored yet.</td>
+                        <td colspan="4" style="text-align:center; color:#8b949e;">No files uploaded.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -137,17 +191,20 @@
     </div>
 
     <script>
-        function switchTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        function switchMainTab(tabName, btnElement) {
+            document.querySelectorAll('.main-tabs .tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.container > .tab-content').forEach(el => el.classList.remove('active'));
             
-            if(tabName === 'scores') {
-                document.getElementById('scores-tab').classList.add('active');
-                event.target.classList.add('active');
-            } else {
-                document.getElementById('vault-tab').classList.add('active');
-                event.target.classList.add('active');
-            }
+            btnElement.classList.add('active');
+            document.getElementById(tabName + '-tab').classList.add('active');
+        }
+
+        function switchSubTab(subTabName, btnElement) {
+            document.querySelectorAll('.match-tabs .tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.subtab-content').forEach(el => el.classList.remove('active'));
+            
+            btnElement.classList.add('active');
+            document.getElementById(subTabName + '-subtab').classList.add('active');
         }
     </script>
 </body>
