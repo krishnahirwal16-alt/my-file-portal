@@ -54,50 +54,48 @@ def parse_ist_date_and_day(timestamp_ms):
     except Exception:
         return "Date N/A"
 
-def fetch_crex_style_scores(match_id, headers, team1_short, team2_short):
-    """Fetches deep live score details and formats them like CREX UI"""
-    t1_data = {"name": team1_short, "score": "Yet to Bat", "is_batting": False}
-    t2_data = {"name": team2_short, "score": "Yet to Bat", "is_batting": False}
-    custom_status = ""
-
+def extract_team_scores(m, team1_short, team2_short):
+    """Safely extracts score from Cricbuzz item without extra API calls"""
+    t1_score = "Yet to Bat"
+    t2_score = "Yet to Bat"
+    
     try:
-        url = f"https://cricbuzz-cricket.p.rapidapi.com/mscores/v1/livecard?matchId={match_id}"
-        res = requests.get(url, headers=headers, timeout=5)
-        if res.status_code == 200:
-            data = res.json()
-            custom_status = data.get('customStatus', '') or data.get('status', '')
-            
-            # Score details from livecard
-            score_card = data.get('matchScoreDetails', {}) or data.get('miniscore', {})
-            innings_list = score_card.get('inningsScoreList', [])
-            
-            bat_team_id = score_card.get('batsmanData', {}).get('batTeamId')
+        m_score = m.get('matchScore', {}) or m.get('miniscore', {})
+        if m_score:
+            # Check team1 / team2 direct keys
+            t1_s = m_score.get('team1Score', {}).get('inngs1', {}) or m_score.get('team1Score', {})
+            t2_s = m_score.get('team2Score', {}).get('inngs1', {}) or m_score.get('team2Score', {})
 
-            for inn in innings_list:
-                t_short = inn.get('batTeamName') or inn.get('teamShortName') or 'TEAM'
-                runs = inn.get('runs', 0)
-                wickets = inn.get('wickets', 0)
-                overs = inn.get('overs', '0.0')
-                score_formatted = f"{runs}-{wickets} {overs}"
+            if isinstance(t1_s, dict) and t1_s.get('runs') is not None:
+                r, w, o = t1_s.get('runs', 0), t1_s.get('wickets', 0), t1_s.get('overs', '')
+                t1_score = f"{r}-{w}" + (f" {o}" if o else "")
+                
+            if isinstance(t2_s, dict) and t2_s.get('runs') is not None:
+                r, w, o = t2_s.get('runs', 0), t2_s.get('wickets', 0), t2_s.get('overs', '')
+                t2_score = f"{r}-{w}" + (f" {o}" if o else "")
 
-                if t_short.lower() in team1_short.lower() or team1_short.lower() in t_short.lower():
-                    t1_data["score"] = score_formatted
-                    t1_data["is_batting"] = inn.get('isBatting', False)
-                elif t_short.lower() in team2_short.lower() or team2_short.lower() in t_short.lower():
-                    t2_data["score"] = score_formatted
-                    t2_data["is_batting"] = inn.get('isBatting', False)
-                else:
-                    if t1_data["score"] == "Yet to Bat":
-                        t1_data["name"] = t_short
-                        t1_data["score"] = score_formatted
-                    else:
-                        t2_data["name"] = t_short
-                        t2_data["score"] = score_formatted
-
+            # Check inningsScoreList fallback
+            if t1_score == "Yet to Bat" and t2_score == "Yet to Bat":
+                innings_list = m_score.get('inningsScoreList', [])
+                if isinstance(innings_list, list):
+                    for inn in innings_list:
+                        name = inn.get('batTeamName') or inn.get('teamShortName') or ''
+                        r, w, o = inn.get('runs', 0), inn.get('wickets', 0), inn.get('overs', '')
+                        formatted = f"{r}-{w}" + (f" {o}" if o else "")
+                        
+                        if team1_short.lower() in name.lower() or name.lower() in team1_short.lower():
+                            t1_score = formatted
+                        elif team2_short.lower() in name.lower() or name.lower() in team2_short.lower():
+                            t2_score = formatted
+                        else:
+                            if t1_score == "Yet to Bat":
+                                t1_score = formatted
+                            else:
+                                t2_score = formatted
     except Exception as e:
-        print("Score fetch error:", e)
+        print("Score extraction warning:", e)
 
-    return t1_data, t2_data, custom_status
+    return t1_score, t2_score
 
 def fetch_real_cricket_data():
     api_key = os.environ.get('RAPIDAPI_KEY')
@@ -113,90 +111,71 @@ def fetch_real_cricket_data():
 
     processed_match_ids = set()
 
-    def process_match_item(m, match_category="Other", series_name="Cricket Series", is_live=False):
-        m_info = m.get('matchInfo', {})
-        match_id = m_info.get('matchId')
-
-        if not match_id or match_id in processed_match_ids:
-            return
-        processed_match_ids.add(match_id)
-
-        team1 = m_info.get('team1', {}).get('teamName', 'Team 1')
-        team2 = m_info.get('team2', {}).get('teamName', 'Team 2')
-        team1_short = m_info.get('team1', {}).get('sName', team1[:4].upper())
-        team2_short = m_info.get('team2', {}).get('sName', team2[:4].upper())
-
-        match_format = (m_info.get('matchFormat') or m_info.get('format', 'T20')).upper()
-        status = m_info.get('status', '')
-        state = (m_info.get('state') or '').lower().strip()
-
-        start_time_ms = m_info.get('startDate') or m_info.get('matchStartTimestamp')
-        match_date_ist = parse_ist_date_and_day(start_time_ms)
-
-        venue_info = m_info.get('venueInfo', {})
-        ground = venue_info.get('ground', '')
-        city = venue_info.get('city', '')
-        venue = f"{ground}, {city}".strip(", ") if (ground or city) else "Cricket Ground"
-
-        # Default team score structures
-        t1_data = {"name": team1_short, "score": "Yet to Bat", "is_batting": False}
-        t2_data = {"name": team2_short, "score": "Yet to Bat", "is_batting": False}
-
-        # Pull matchScore summary if present
-        m_score = m.get('matchScore', {})
-        if m_score:
-            t1_s = m_score.get('team1Score', {}).get('inngs1', {})
-            t2_s = m_score.get('team2Score', {}).get('inngs1', {})
-            if t1_s:
-                t1_data["score"] = f"{t1_s.get('runs',0)}-{t1_s.get('wickets',0)} {t1_s.get('overs',0)}"
-            if t2_s:
-                t2_data["score"] = f"{t2_s.get('runs',0)}-{t2_s.get('wickets',0)} {t2_s.get('overs',0)}"
-
-        # If live and empty/incomplete, call detailed endpoint
-        if is_live:
-            deep_t1, deep_t2, c_status = fetch_crex_style_scores(match_id, headers, team1_short, team2_short)
-            if deep_t1["score"] != "Yet to Bat":
-                t1_data = deep_t1
-            if deep_t2["score"] != "Yet to Bat":
-                t2_data = deep_t2
-            if c_status:
-                status = c_status
-
-        item = {
-            "title": f"{team1} vs {team2}",
-            "team1_short": t1_data["name"],
-            "team1_score": t1_data["score"],
-            "team1_batting": t1_data["is_batting"],
-            "team2_short": t2_data["name"],
-            "team2_score": t2_data["score"],
-            "team2_batting": t2_data["is_batting"],
-            "format": match_format,
-            "category": match_category,
-            "series": series_name,
-            "status": status,
-            "date": match_date_ist,
-            "venue": venue
-        }
-
-        status_lower = status.lower()
-        is_finished = (
-            "complete" in state or "result" in state or "finished" in state or
-            "won by" in status_lower or "beat" in status_lower or 
-            "drawn" in status_lower or "tied" in status_lower or 
-            "abandoned" in status_lower or "no result" in status_lower
-        )
-        is_upcoming = "upcoming" in state or "preview" in state or "starts at" in status_lower
-
-        if is_finished:
-            matches_data["finished"].append(item)
-        elif is_upcoming:
-            matches_data["upcoming"].append(item)
-        else:
-            matches_data["live"].append(item)
-
-    def fetch_endpoint_data(url, is_live=False):
+    def process_match_item(m, match_category="Other", series_name="Cricket Series"):
         try:
-            res = requests.get(url, headers=headers, timeout=10)
+            m_info = m.get('matchInfo', {})
+            match_id = m_info.get('matchId')
+
+            if not match_id or match_id in processed_match_ids:
+                return
+            processed_match_ids.add(match_id)
+
+            team1 = m_info.get('team1', {}).get('teamName', 'Team 1')
+            team2 = m_info.get('team2', {}).get('teamName', 'Team 2')
+            team1_short = m_info.get('team1', {}).get('sName', team1[:4].upper())
+            team2_short = m_info.get('team2', {}).get('sName', team2[:4].upper())
+
+            match_format = (m_info.get('matchFormat') or m_info.get('format', 'T20')).upper()
+            status = m_info.get('status', '')
+            state = (m_info.get('state') or '').lower().strip()
+
+            start_time_ms = m_info.get('startDate') or m_info.get('matchStartTimestamp')
+            match_date_ist = parse_ist_date_and_day(start_time_ms)
+
+            venue_info = m_info.get('venueInfo', {})
+            ground = venue_info.get('ground', '')
+            city = venue_info.get('city', '')
+            venue = f"{ground}, {city}".strip(", ") if (ground or city) else "Cricket Ground"
+
+            t1_score, t2_score = extract_team_scores(m, team1_short, team2_short)
+
+            item = {
+                "title": f"{team1} vs {team2}",
+                "team1_short": team1_short,
+                "team1_score": t1_score,
+                "team1_batting": False,
+                "team2_short": team2_short,
+                "team2_score": t2_score,
+                "team2_batting": False,
+                "format": match_format,
+                "category": match_category,
+                "series": series_name,
+                "status": status,
+                "date": match_date_ist,
+                "venue": venue
+            }
+
+            status_lower = status.lower()
+            is_finished = (
+                "complete" in state or "result" in state or "finished" in state or
+                "won by" in status_lower or "beat" in status_lower or 
+                "drawn" in status_lower or "tied" in status_lower or 
+                "abandoned" in status_lower or "no result" in status_lower
+            )
+            is_upcoming = "upcoming" in state or "preview" in state or "starts at" in status_lower
+
+            if is_finished:
+                matches_data["finished"].append(item)
+            elif is_upcoming:
+                matches_data["upcoming"].append(item)
+            else:
+                matches_data["live"].append(item)
+        except Exception as err:
+            print("Item Parse Error:", err)
+
+    def fetch_endpoint_data(url):
+        try:
+            res = requests.get(url, headers=headers, timeout=8)
             if res.status_code == 200:
                 raw = res.json()
                 type_matches = raw.get('typeMatches', [])
@@ -209,13 +188,13 @@ def fetch_real_cricket_data():
                             series_name = series_ad.get('seriesName') or series_item.get('seriesName', 'Cricket Series')
                             matches = series_ad.get('matches', []) or series_item.get('matches', [])
                             for m in matches:
-                                process_match_item(m, match_category, series_name, is_live=is_live)
+                                process_match_item(m, match_category, series_name)
         except Exception as e:
-            print("API Error:", e)
+            print("Endpoint API Fetch Error:", e)
 
-    fetch_endpoint_data("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/live", is_live=True)
-    fetch_endpoint_data("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/recent", is_live=False)
-    fetch_endpoint_data("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/upcoming", is_live=False)
+    fetch_endpoint_data("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/live")
+    fetch_endpoint_data("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/recent")
+    fetch_endpoint_data("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/upcoming")
 
     return matches_data
 
