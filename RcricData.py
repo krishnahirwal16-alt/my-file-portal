@@ -48,19 +48,20 @@ def format_score_inngs(inng_data):
         return ""
     runs = inng_data.get('runs', 0)
     wickets = inng_data.get('wickets', 0)
-    overs = inng_data.get('overs', '')
-    if overs:
+    overs = inng_data.get('overs')
+    if overs is not None and str(overs) != "":
         return f"{runs}/{wickets} ({overs} ov)"
     return f"{runs}/{wickets}"
 
-def convert_to_ist(timestamp_ms):
+def parse_ist_date_and_day(timestamp_ms):
     if not timestamp_ms:
         return "Date/Time N/A"
     try:
         ts = int(timestamp_ms) / 1000.0
         utc_dt = datetime.fromtimestamp(ts, tz=timezone.utc)
         ist_dt = utc_dt.astimezone(timezone(timedelta(hours=5, minutes=30)))
-        return ist_dt.strftime("%d %b %Y, %I:%M %p IST")
+        # Format: Sunday, 13 Sep 2026 at 11:30 PM IST
+        return ist_dt.strftime("%A, %d %b %Y | %I:%M %p IST")
     except Exception:
         return "Date N/A"
 
@@ -76,7 +77,9 @@ def fetch_real_cricket_data():
         "x-rapidapi-host": "cricbuzz-cricket.p.rapidapi.com"
     }
 
-    def process_matches_endpoint(url):
+    processed_match_ids = set()
+
+    def process_matches_endpoint(url, force_category=None):
         try:
             res = requests.get(url, headers=headers, timeout=10)
             if res.status_code == 200:
@@ -94,6 +97,12 @@ def fetch_real_cricket_data():
                         for m in matches:
                             m_info = m.get('matchInfo', {})
                             m_score = m.get('matchScore', {})
+                            match_id = m_info.get('matchId')
+
+                            if match_id and match_id in processed_match_ids:
+                                continue
+                            if match_id:
+                                processed_match_ids.add(match_id)
 
                             team1 = m_info.get('team1', {}).get('teamName', 'Team 1')
                             team2 = m_info.get('team2', {}).get('teamName', 'Team 2')
@@ -102,9 +111,9 @@ def fetch_real_cricket_data():
                             state = (m_info.get('state') or '').lower()
 
                             start_time_ms = m_info.get('startDate') or m_info.get('matchStartTimestamp')
-                            match_date_ist = convert_to_ist(start_time_ms)
+                            match_date_ist = parse_ist_date_and_day(start_time_ms)
 
-                            # Detailed Score Construction (Handling Test & Limited Overs)
+                            # Detailed Score Construction (Overs + Multiple Innings)
                             score_str = ""
                             if m_score:
                                 t1_score = m_score.get('team1Score', {})
@@ -118,12 +127,14 @@ def fetch_real_cricket_data():
                                 if match_format == 'TEST':
                                     t1_full = f"{t1_i1}" + (f" & {t1_i2}" if t1_i2 else "")
                                     t2_full = f"{t2_i1}" + (f" & {t2_i2}" if t2_i2 else "")
-                                    score_str = f"{team1}: {t1_full} | {team2}: {t2_full}".strip(" |")
+                                    score_parts = [p for p in [f"{team1}: {t1_full}" if t1_full else "", f"{team2}: {t2_full}" if t2_full else ""] if p]
+                                    score_str = " | ".join(score_parts)
                                 else:
-                                    score_str = f"{team1}: {t1_i1} | {team2}: {t2_i1}".strip(" |")
+                                    score_parts = [p for p in [f"{team1}: {t1_i1}" if t1_i1 else "", f"{team2}: {t2_i1}" if t2_i1 else ""] if p]
+                                    score_str = " | ".join(score_parts)
 
                             if not score_str:
-                                score_str = "Match Starting Soon / Toss Done"
+                                score_str = "Score Not Started / Toss Done"
 
                             venue_info = m_info.get('venueInfo', {})
                             ground = venue_info.get('ground', '')
@@ -142,21 +153,29 @@ def fetch_real_cricket_data():
                             }
 
                             status_lower = status.lower()
-                            # Enhanced Logic for Toss and In-Progress filtering into LIVE category
-                            is_finished = "complete" in state or "result" in state or "won" in status_lower or "drawn" in status_lower
-                            is_live = ("in progress" in state or "live" in state or "toss" in status_lower 
-                                       or "opt to" in status_lower or "innings" in status_lower or "break" in status_lower 
-                                       or "bat" in status_lower or "bowl" in status_lower or "delay" in status_lower)
-
-                            if is_finished:
-                                matches_data["finished"].append(item)
-                            elif is_live or (not is_finished and "upcoming" not in state and "preview" not in state):
+                            
+                            if force_category == "live":
                                 matches_data["live"].append(item)
-                            else:
+                            elif force_category == "upcoming":
                                 matches_data["upcoming"].append(item)
+                            else:
+                                is_finished = "complete" in state or "result" in state or "won" in status_lower or "drawn" in status_lower or "abandon" in status_lower
+                                is_live = ("in progress" in state or "live" in state or "toss" in status_lower 
+                                           or "opt to" in status_lower or "innings" in status_lower or "break" in status_lower 
+                                           or "bat" in status_lower or "bowl" in status_lower or "delay" in status_lower 
+                                           or "stumps" in status_lower or "rain" in status_lower)
+
+                                if is_live:
+                                    matches_data["live"].append(item)
+                                elif is_finished:
+                                    matches_data["finished"].append(item)
+                                else:
+                                    matches_data["upcoming"].append(item)
         except Exception as e:
             print("API Exception:", e)
 
+    # Calling endpoints in sequence
+    process_matches_endpoint("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/live", force_category="live")
     process_matches_endpoint("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/recent")
     process_matches_endpoint("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/upcoming")
 
