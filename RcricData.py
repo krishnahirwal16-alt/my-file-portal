@@ -4,7 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 import cloudinary
 import cloudinary.uploader
 
-app = Flask(__name__, template_folder='.')
+app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'
 
 # PostgreSQL Database Configuration
