@@ -8,7 +8,7 @@ import cloudinary.uploader
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'crixdata_secret_key_2026')
 
-# Database Configuration
+# Database Configuration with SSL Fix
 db_url = os.environ.get('DATABASE_URL', 'sqlite:///files.db')
 if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
@@ -16,8 +16,7 @@ if db_url.startswith("postgres://"):
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-db = SQLAlchemy()
-db.init_app(app)
+db = SQLAlchemy(app)
 
 class FileRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -26,13 +25,27 @@ class FileRecord(db.Model):
     public_id = db.Column(db.String(200), nullable=False)
     category = db.Column(db.String(100), default="General Cricket")
 
-with app.app_context():
-    try:
-        db.create_all()
-    except Exception as e:
-        print("Database initialization error:", e)
+# Cloudinary Configuration
+cloudinary.config(
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.environ.get('CLOUDINARY_API_KEY'),
+    api_secret=os.environ.get('CLOUDINARY_API_SECRET')
+)
 
-# Live Cricket Scores Helper Function
+# Safe Table Creation on Startup
+db_created = False
+
+@app.before_request
+def create_tables_once():
+    global db_created
+    if not db_created:
+        try:
+            db.create_all()
+            db_created = True
+        except Exception as e:
+            app.logger.error(f"DB Init Error: {e}")
+
+# Live Cricket Data Fetcher
 def fetch_live_cricket_data():
     rapid_api_key = os.environ.get('RAPIDAPI_KEY')
     if rapid_api_key:
@@ -48,7 +61,6 @@ def fetch_live_cricket_data():
         except Exception:
             pass
 
-    # Sample/Fallback Cricket Data
     return {
         "type": "Featured Matches",
         "matches": [
@@ -69,7 +81,10 @@ def fetch_live_cricket_data():
 
 @app.route('/')
 def index():
-    files = FileRecord.query.all()
+    try:
+        files = FileRecord.query.all()
+    except Exception:
+        files = []
     is_admin = session.get('is_admin', False)
     live_scores = fetch_live_cricket_data()
     return render_template('index.html', files=files, is_admin=is_admin, live_scores=live_scores)
