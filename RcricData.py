@@ -1,6 +1,6 @@
 import os
 import requests
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
 import cloudinary
 import cloudinary.uploader
@@ -8,7 +8,6 @@ import cloudinary.uploader
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'crixdata_secret_key_2026')
 
-# Database Configuration with SSL Fix
 db_url = os.environ.get('DATABASE_URL', 'sqlite:///files.db')
 if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
@@ -25,14 +24,12 @@ class FileRecord(db.Model):
     public_id = db.Column(db.String(200), nullable=False)
     category = db.Column(db.String(100), default="General Cricket")
 
-# Cloudinary Configuration
 cloudinary.config(
     cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
     api_key=os.environ.get('CLOUDINARY_API_KEY'),
     api_secret=os.environ.get('CLOUDINARY_API_SECRET')
 )
 
-# Safe Table Creation on Startup
 db_created = False
 
 @app.before_request
@@ -42,42 +39,91 @@ def create_tables_once():
         try:
             db.create_all()
             db_created = True
-        except Exception as e:
-            app.logger.error(f"DB Init Error: {e}")
-
-# Live Cricket Data Fetcher
-def fetch_live_cricket_data():
-    rapid_api_key = os.environ.get('RAPIDAPI_KEY')
-    if rapid_api_key:
-        url = "https://cricbuzz-cricket.p.rapidapi.com/matches/v1/recent"
-        headers = {
-            "x-rapidapi-key": rapid_api_key,
-            "x-rapidapi-host": "cricbuzz-cricket.p.rapidapi.com"
-        }
-        try:
-            res = requests.get(url, headers=headers, timeout=5)
-            if res.status_code == 200:
-                return res.json()
         except Exception:
             pass
 
-    return {
-        "type": "Featured Matches",
-        "matches": [
-            {
-                "title": "IND vs AUS - T20 Series",
-                "status": "India won by 18 runs",
-                "score": "IND: 185/5 (20.0) | AUS: 167/9 (20.0)",
-                "venue": "M. Chinnaswamy Stadium, Bengaluru"
-            },
-            {
-                "title": "ENG vs NZ - ODI Match",
-                "status": "In Progress (2nd Innings)",
-                "score": "ENG: 290/8 (50.0) | NZ: 145/3 (24.2)",
-                "venue": "Lord's, London"
-            }
-        ]
+def fetch_real_cricket_data():
+    api_key = os.environ.get('RAPIDAPI_KEY')
+    matches_data = {"live": [], "upcoming": [], "finished": []}
+
+    if not api_key:
+        return matches_data
+
+    headers = {
+        "x-rapidapi-key": api_key,
+        "x-rapidapi-host": "cricbuzz-cricket.p.rapidapi.com"
     }
+
+    # Helper function to parse matches list from Cricbuzz JSON API
+    def parse_api_response(url):
+        try:
+            res = requests.get(url, headers=headers, timeout=8)
+            if res.status_code == 200:
+                raw = res.json()
+                for type_group in raw.get('typeMatches', []):
+                    match_type_category = type_group.get('matchType', 'Other')  # International, League, Women, etc.
+                    
+                    for series_wrapper in type_group.get('seriesMatches', []):
+                        series_ad = series_wrapper.get('seriesAdWrapper', {})
+                        series_name = series_ad.get('seriesName', 'Cricket Series')
+                        matches_list = series_ad.get('matches', [])
+                        
+                        # Fallback if structure varies
+                        if not matches_list and 'matches' in series_wrapper:
+                            matches_list = series_wrapper.get('matches', [])
+
+                        for m in matches_list:
+                            m_info = m.get('matchInfo', {})
+                            m_score = m.get('matchScore', {})
+
+                            team1 = m_info.get('team1', {}).get('teamName', 'Team 1')
+                            team2 = m_info.get('team2', {}).get('teamName', 'Team 2')
+                            match_format = m_info.get('matchFormat', 'CRICKET').upper()
+                            status = m_info.get('status', 'In Progress')
+                            state = m_info.get('state', '').lower()
+
+                            # Score Extract
+                            t1_runs = m_score.get('team1Score', {}).get('inngs1', {}).get('runs', '')
+                            t1_wkts = m_score.get('team1Score', {}).get('inngs1', {}).get('wickets', '')
+                            t2_runs = m_score.get('team2Score', {}).get('inngs1', {}).get('runs', '')
+                            t2_wkts = m_score.get('team2Score', {}).get('inngs1', {}).get('wickets', '')
+
+                            score_str = ""
+                            if t1_runs != '' or t2_runs != '':
+                                s1 = f"{t1_runs}/{t1_wkts}" if t1_runs != '' else ""
+                                s2 = f"{t2_runs}/{t2_wkts}" if t2_runs != '' else ""
+                                score_str = f"{team1}: {s1} | {team2}: {s2}".strip(" |")
+                            else:
+                                score_str = "Match Status Updating..."
+
+                            venue = f"{m_info.get('venueInfo', {}).get('ground', '')}, {m_info.get('venueInfo', {}).get('city', '')}".strip(", ")
+
+                            item = {
+                                "title": f"{team1} vs {team2}",
+                                "format": match_format,
+                                "category": match_type_category,
+                                "series": series_name,
+                                "status": status,
+                                "score": score_str,
+                                "venue": venue if venue else "Cricket Ground"
+                            }
+
+                            # Filter into Live, Upcoming, Finished
+                            if "complete" in state or "result" in state or "won" in status.lower():
+                                matches_data["finished"].append(item)
+                            elif "upcoming" in state or "preview" in state or "scheduled" in state:
+                                matches_data["upcoming"].append(item)
+                            else:
+                                matches_data["live"].append(item)
+        except Exception as e:
+            print("API Error:", e)
+
+    # Fetching live/recent matches endpoint
+    parse_api_response("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/recent")
+    # Fetching upcoming matches endpoint
+    parse_api_response("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/upcoming")
+
+    return matches_data
 
 @app.route('/')
 def index():
@@ -86,8 +132,8 @@ def index():
     except Exception:
         files = []
     is_admin = session.get('is_admin', False)
-    live_scores = fetch_live_cricket_data()
-    return render_template('index.html', files=files, is_admin=is_admin, live_scores=live_scores)
+    cricket_data = fetch_real_cricket_data()
+    return render_template('index.html', files=files, is_admin=is_admin, cricket_data=cricket_data)
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_login():
@@ -96,7 +142,7 @@ def admin_login():
         admin_pass = os.environ.get('ADMIN_PASSWORD', 'admin123')
         if password == admin_pass:
             session['is_admin'] = True
-            flash('Welcome back to CrixData Admin!')
+            flash('Admin Access Granted!')
             return redirect(url_for('index'))
         else:
             flash('Incorrect Admin Password!')
@@ -105,19 +151,15 @@ def admin_login():
 @app.route('/logout')
 def logout():
     session.pop('is_admin', None)
-    flash('Logged out from CrixData Admin.')
     return redirect(url_for('index'))
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if not session.get('is_admin'):
-        flash('Unauthorized action!')
         return redirect(url_for('index'))
-        
     title = request.form.get('title')
     category = request.form.get('category', 'General Cricket')
     file = request.files.get('file')
-    
     if file and title:
         upload_result = cloudinary.uploader.upload(file, resource_type="auto")
         new_file = FileRecord(
@@ -128,20 +170,16 @@ def upload_file():
         )
         db.session.add(new_file)
         db.session.commit()
-        flash('Cricket File Vault Updated Successfully!')
     return redirect(url_for('index'))
 
 @app.route('/delete/<int:file_id>', methods=['POST'])
 def delete_file(file_id):
     if not session.get('is_admin'):
-        flash('Unauthorized action!')
         return redirect(url_for('index'))
-
     file_item = FileRecord.query.get_or_404(file_id)
     cloudinary.uploader.destroy(file_item.public_id, invalidate=True)
     db.session.delete(file_item)
     db.session.commit()
-    flash('File removed permanently!')
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
