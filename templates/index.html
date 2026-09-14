@@ -14,10 +14,10 @@
         .btn-admin:hover { background-color: #21262d; color: #58a6ff; }
         .tab-btn { background-color: #161b22; border: 1px solid #30363d; color: #8b949e; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; }
         .tab-btn.active { background-color: #238636; color: #ffffff; border-color: #2ea043; }
-        .match-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 15px; margin-bottom: 15px; transition: transform 0.2s; }
-        .match-card:hover { transform: translateY(-2px); border-color: #58a6ff; }
-        .badge-live { background-color: #da3633; color: white; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .match-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 16px; margin-bottom: 15px; position: relative; }
+        .badge-format { background-color: #1f6feb; color: #ffffff; font-size: 0.75rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; }
+        .badge-live { background-color: #da3633; color: white; animation: pulse 1.5s infinite; font-size: 0.75rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
         .file-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 15px; margin-bottom: 15px; }
     </style>
 </head>
@@ -44,7 +44,6 @@
             </button>
         </div>
 
-        <!-- Matches Section -->
         <div id="section-matches">
             <div class="d-flex mb-3 gap-2">
                 <button class="btn btn-sm btn-outline-light active" id="sub-live" onclick="renderCategory('live')">Live</button>
@@ -55,12 +54,11 @@
             <div id="matches-container" class="row">
                 <div class="col-12 text-center text-muted py-5">
                     <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-2">Fetching live feeds (ESPN & Crex Line Engine)...</p>
+                    <p class="mt-2">Loading live match feeds...</p>
                 </div>
             </div>
         </div>
 
-        <!-- Vault Section -->
         <div id="section-vault" style="display: none;">
             {% if is_admin %}
             <div class="card bg-dark text-light border-secondary p-3 mb-4">
@@ -105,7 +103,7 @@
                 {% else %}
                     <div class="col-12 text-center text-muted py-5">
                         <i class="fa-solid fa-box-open fa-3x mb-3"></i>
-                        <p>No files available in Cricket Data Vault yet.</p>
+                        <p>No files available in Data Vault.</p>
                     </div>
                 {% endif %}
             </div>
@@ -123,51 +121,59 @@
             document.getElementById('btn-vault').classList.toggle('active', tab === 'vault');
         }
 
-        async function fetchHybridCricketData() {
+        async function fetchRealTimeMatches() {
             matchesStore = { live: [], upcoming: [], finished: [] };
-            
-            // Primary Engine: Open ESPN Cricinfo Global Scoreboard
             try {
-                const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/cricket/13875/scoreboard');
+                const res = await fetch('https://site.web.api.espn.com/apis/site/v2/sports/cricket/scoreboard?limit=50');
                 const data = await res.json();
-                
+
                 if (data && data.events) {
                     data.events.forEach(evt => {
-                        const comp = evt.competitions[0];
+                        const comp = evt.competitions ? evt.competitions[0] : {};
                         const teams = comp.competitors || [];
-                        const t1 = teams[0] ? teams[0].team.displayName : 'Team A';
-                        const t1Score = teams[0] && teams[0].score ? teams[0].score : '0/0';
-                        const t2 = teams[1] ? teams[1].team.displayName : 'Team B';
-                        const t2Score = teams[1] && teams[1].score ? teams[1].score : '0/0';
+                        const t1 = teams[0] ? teams[0].team.displayName : 'Team 1';
+                        const t1Score = teams[0] && teams[0].score ? teams[0].score : 'Yet to Bat';
+                        const t2 = teams[1] ? teams[1].team.displayName : 'Team 2';
+                        const t2Score = teams[1] && teams[1].score ? teams[1].score : 'Yet to Bat';
                         
                         const statusObj = comp.status || {};
-                        const state = statusObj.type ? statusObj.type.state : 'in';
-                        const statusText = statusObj.type ? statusObj.type.detail || statusObj.type.shortDetail : 'In Progress';
+                        const state = statusObj.type ? statusObj.type.state : 'pre';
+                        const statusDetail = statusObj.type ? statusObj.type.detail || statusObj.type.shortDetail : 'Scheduled';
                         
+                        const venueName = comp.venue ? `${comp.venue.fullName || ''}, ${comp.venue.address ? comp.venue.address.city || '' : ''}`.trim().replace(/^,\s*|\s*,\s*$/g, '') : 'Stadium N/A';
+                        const seriesName = evt.season ? evt.season.slug || 'Cricket Tournament' : 'International Series';
+                        
+                        let format = 'T20';
+                        const nameLower = (evt.name + ' ' + (comp.type ? comp.type.text : '')).toLowerCase();
+                        if (nameLower.includes('test')) format = 'TEST';
+                        else if (nameLower.includes('odi') || nameLower.includes('one day')) format = 'ODI';
+                        else if (nameLower.includes('t20') || nameLower.includes('twenty20')) format = 'T20';
+
                         const matchObj = {
                             title: evt.name || `${t1} vs ${t2}`,
+                            series: seriesName.toUpperCase().replace(/-/g, ' '),
                             t1_name: t1,
                             t1_score: t1Score,
                             t2_name: t2,
                             t2_score: t2Score,
-                            status: statusText,
-                            venue: comp.venue ? comp.venue.fullName : 'Cricket Stadium',
-                            date: new Date(evt.date).toLocaleDateString()
+                            format: format,
+                            status: statusDetail,
+                            venue: venueName || 'Cricket Ground',
+                            date: new Date(evt.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
                         };
 
                         if (state === 'post') {
                             matchesStore.finished.push(matchObj);
-                        } else if (state === 'pre') {
-                            matchesStore.upcoming.push(matchObj);
-                        } else {
+                        } else if (state === 'in') {
                             matchesStore.live.push(matchObj);
+                        } else {
+                            matchesStore.upcoming.push(matchObj);
                         }
                     });
                 }
-            } catch (e) {
-                console.log("Primary Feed Failed, attempting fallback...", e);
+            } catch (err) {
+                console.error("Feed error:", err);
             }
-
             renderCategory(activeCategory);
         }
 
@@ -182,34 +188,47 @@
             const list = matchesStore[cat] || [];
 
             if (list.length === 0) {
-                container.innerHTML = `<div class="col-12 text-center text-muted py-5"><i class="fa-solid fa-circle-notch fa-spin mb-2"></i><p>No ${cat} matches active right now.</p></div>`;
+                container.innerHTML = `<div class="col-12 text-center text-muted py-5"><p>No ${cat} matches available right now.</p></div>`;
                 return;
             }
 
             container.innerHTML = list.map(m => `
                 <div class="col-md-6 col-lg-4">
                     <div class="match-card">
-                        <div class="d-flex justify-content-between text-muted small mb-2">
-                            <span><i class="fa-solid fa-location-dot me-1"></i>${m.venue}</span>
-                            <span>${m.date}</span>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge-format">${m.format}</span>
+                            <small class="text-muted">${m.date}</small>
                         </div>
-                        <h6 class="text-white mb-2">${m.title}</h6>
-                        <div class="d-flex justify-content-between align-items-center bg-dark p-2 rounded mb-2">
-                            <div><strong>${m.t1_name}:</strong> <span class="text-warning">${m.t1_score}</span></div>
-                            <div><strong>${m.t2_name}:</strong> <span class="text-warning">${m.t2_score}</span></div>
+                        <h6 class="text-white mb-1 fw-bold">${m.t1_name} vs ${m.t2_name}</h6>
+                        <small class="text-secondary d-block mb-2"><i class="fa-solid fa-trophy me-1"></i>${m.series}</small>
+                        
+                        <div class="bg-dark p-2 rounded mb-2 border border-secondary">
+                            <div class="d-flex justify-content-between text-light small mb-1">
+                                <span>${m.t1_name}</span>
+                                <span class="text-warning fw-bold">${m.t1_score}</span>
+                            </div>
+                            <div class="d-flex justify-content-between text-light small">
+                                <span>${m.t2_name}</span>
+                                <span class="text-warning fw-bold">${m.t2_score}</span>
+                            </div>
                         </div>
-                        <div class="text-info small fw-bold">
-                            ${cat === 'live' ? '<span class="badge badge-live me-1">LIVE</span>' : ''}
-                            ${m.status}
+                        
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <span class="text-info small fw-bold">
+                                ${cat === 'live' ? '<span class="badge-live me-1">LIVE</span>' : ''}
+                                ${m.status}
+                            </span>
+                        </div>
+                        <div class="text-muted small mt-1 text-truncate">
+                            <i class="fa-solid fa-location-dot me-1"></i>${m.venue}
                         </div>
                     </div>
                 </div>
             `).join('');
         }
 
-        fetchHybridCricketData();
-        // Auto-refresh live scores every 30 seconds
-        setInterval(fetchHybridCricketData, 30000);
+        fetchRealTimeMatches();
+        setInterval(fetchRealTimeMatches, 20000);
     </script>
 </body>
 </html>
