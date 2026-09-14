@@ -1,10 +1,86 @@
-<!-- Real-Time Matches Section -->
-<div id="section-matches">
-    <div style="width: 100%; height: 600px; overflow: hidden; border-radius: 10px; border: 1px solid #30363d;">
-        <iframe 
-            src="https://www.cricbuzz.com/cricket-match/live-scores" 
-            style="width: 100%; height: 100%; border: none;" 
-            title="Live Cricket Scores">
-        </iframe>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrixData Hub</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #0d1117; color: #c9d1d9; font-family: system-ui, -apple-system, sans-serif; }
+        .navbar-custom { background-color: #161b22; border-bottom: 1px solid #30363d; padding: 15px 20px; }
+        .brand-title { color: #58a6ff; font-weight: 700; font-size: 1.5rem; }
+        .tab-btn { background-color: #161b22; border: 1px solid #30363d; color: #8b949e; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+        .tab-btn.active { background-color: #238636; color: #ffffff; border-color: #2ea043; }
+        .match-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 16px; margin-bottom: 15px; }
+        .badge-fmt { background-color: #1f6feb; color: white; font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        .badge-live { background-color: #da3633; color: white; font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-custom d-flex justify-content-between align-items-center">
+        <div class="brand-title">CrixData Hub</div>
+        <a href="/" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-rotate me-1"></i> Refresh Data</a>
+    </nav>
+
+    <div class="container my-4">
+        <div class="d-flex mb-4 gap-2">
+            <button class="tab-btn active" id="tab-live-btn" onclick="showTab('live')">Live Matches ({{ matches.live|length }})</button>
+            <button class="tab-btn" id="tab-upcoming-btn" onclick="showTab('upcoming')">Upcoming ({{ matches.upcoming|length }})</button>
+            <button class="tab-btn" id="tab-finished-btn" onclick="showTab('finished')">Finished ({{ matches.finished|length }})</button>
+        </div>
+
+        {% for category, match_list in matches.items() %}
+        <div id="cat-{{ category }}" class="match-category-group" style="{% if category != 'live' %}display: none;{% endif %}">
+            <div class="row">
+                {% if match_list %}
+                    {% for m in match_list %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="match-card">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="badge-fmt">{{ m.format }}</span>
+                                <small class="text-muted">{{ m.date }}</small>
+                            </div>
+                            <h6 class="text-white mb-2 fw-bold">{{ m.title }}</h6>
+                            <div class="bg-dark p-2 rounded mb-2 border border-secondary">
+                                <div class="d-flex justify-content-between text-light small mb-1">
+                                    <span>{{ m.t1 }}</span>
+                                    <span class="text-warning fw-bold">{{ m.t1_score }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between text-light small">
+                                    <span>{{ m.t2 }}</span>
+                                    <span class="text-warning fw-bold">{{ m.t2_score }}</span>
+                                </div>
+                            </div>
+                            <div class="text-info small fw-bold">
+                                {% if category == 'live' %}<span class="badge-live me-1">LIVE</span>{% endif %}
+                                {{ m.status }}
+                            </div>
+                            <div class="text-muted small mt-1">
+                                <i class="fa-solid fa-location-dot me-1"></i>{{ m.venue }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="col-12 text-center text-muted py-5">
+                        <p>No {{ category }} matches active at the moment.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
     </div>
-</div>
+
+    <script>
+        function showTab(cat) {
+            document.querySelectorAll('.match-category-group').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById('cat-' + cat).style.display = 'block';
+            document.getElementById('tab-' + cat + '-btn').classList.add('active');
+        }
+    </script>
+</body>
+</html>
