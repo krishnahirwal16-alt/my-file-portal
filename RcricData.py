@@ -1,224 +1,63 @@
-import os
-import requests
-from datetime import datetime, timezone, timedelta
-from flask import Flask, render_template, request, redirect, url_for, flash, session
-from flask_sqlalchemy import SQLAlchemy
-import cloudinary
-import cloudinary.uploader
+import json
+import urllib.request
+from flask import Flask, render_template
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'crixdata_secret_key_2026')
 
-db_url = os.environ.get('DATABASE_URL', 'sqlite:///files.db')
-if db_url.startswith("postgres://"):
-    db_url = db_url.replace("postgres://", "postgresql://", 1)
-
-app.config['SQLALCHEMY_DATABASE_URI'] = db_url
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-db = SQLAlchemy(app)
-
-class FileRecord(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(200), nullable=False)
-    file_url = db.Column(db.String(500), nullable=False)
-    public_id = db.Column(db.String(200), nullable=False)
-    category = db.Column(db.String(100), default="General Cricket")
-
-cloudinary.config(
-    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
-    api_key=os.environ.get('CLOUDINARY_API_KEY'),
-    api_secret=os.environ.get('CLOUDINARY_API_SECRET')
-)
-
-db_created = False
-
-@app.before_request
-def create_tables_once():
-    global db_created
-    if not db_created:
-        try:
-            db.create_all()
-            db_created = True
-        except Exception:
-            pass
-
-def format_score_inngs(inng_data):
-    if not inng_data:
-        return ""
-    runs = inng_data.get('runs', 0)
-    wickets = inng_data.get('wickets', 0)
-    overs = inng_data.get('overs', '')
-    if overs:
-        return f"{runs}/{wickets} ({overs} ov)"
-    return f"{runs}/{wickets}"
-
-def convert_to_ist(timestamp_ms):
-    if not timestamp_ms:
-        return "Date/Time N/A"
-    try:
-        ts = int(timestamp_ms) / 1000.0
-        utc_dt = datetime.fromtimestamp(ts, tz=timezone.utc)
-        ist_dt = utc_dt.astimezone(timezone(timedelta(hours=5, minutes=30)))
-        return ist_dt.strftime("%d %b %Y, %I:%M %p IST")
-    except Exception:
-        return "Date N/A"
-
-def fetch_real_cricket_data():
-    api_key = os.environ.get('RAPIDAPI_KEY')
-    matches_data = {"live": [], "upcoming": [], "finished": []}
-
-    if not api_key:
-        return matches_data
-
-    headers = {
-        "x-rapidapi-key": api_key,
-        "x-rapidapi-host": "cricbuzz-cricket.p.rapidapi.com"
-    }
-
-    def process_matches_endpoint(url):
-        try:
-            res = requests.get(url, headers=headers, timeout=10)
-            if res.status_code == 200:
-                raw = res.json()
-                type_matches = raw.get('typeMatches', [])
-                for type_group in type_matches:
-                    match_category = type_group.get('matchType', 'Other')
-                    series_matches = type_group.get('seriesMatches', [])
-                    
-                    for series_item in series_matches:
-                        series_ad = series_item.get('seriesAdWrapper', {})
-                        series_name = series_ad.get('seriesName') or series_item.get('seriesName', 'Cricket Series')
-                        matches = series_ad.get('matches', []) or series_item.get('matches', [])
-
-                        for m in matches:
-                            m_info = m.get('matchInfo', {})
-                            m_score = m.get('matchScore', {})
-
-                            team1 = m_info.get('team1', {}).get('teamName', 'Team 1')
-                            team2 = m_info.get('team2', {}).get('teamName', 'Team 2')
-                            match_format = (m_info.get('matchFormat') or m_info.get('format', 'CRICKET')).upper()
-                            status = m_info.get('status', '')
-                            state = (m_info.get('state') or '').lower()
-
-                            start_time_ms = m_info.get('startDate') or m_info.get('matchStartTimestamp')
-                            match_date_ist = convert_to_ist(start_time_ms)
-
-                            # Detailed Score Construction (Handling Test & Limited Overs)
-                            score_str = ""
-                            if m_score:
-                                t1_score = m_score.get('team1Score', {})
-                                t2_score = m_score.get('team2Score', {})
-
-                                t1_i1 = format_score_inngs(t1_score.get('inngs1'))
-                                t1_i2 = format_score_inngs(t1_score.get('inngs2'))
-                                t2_i1 = format_score_inngs(t2_score.get('inngs1'))
-                                t2_i2 = format_score_inngs(t2_score.get('inngs2'))
-
-                                if match_format == 'TEST':
-                                    t1_full = f"{t1_i1}" + (f" & {t1_i2}" if t1_i2 else "")
-                                    t2_full = f"{t2_i1}" + (f" & {t2_i2}" if t2_i2 else "")
-                                    score_str = f"{team1}: {t1_full} | {team2}: {t2_full}".strip(" |")
-                                else:
-                                    score_str = f"{team1}: {t1_i1} | {team2}: {t2_i1}".strip(" |")
-
-                            if not score_str:
-                                score_str = "Match Starting Soon / Toss Done"
-
-                            venue_info = m_info.get('venueInfo', {})
-                            ground = venue_info.get('ground', '')
-                            city = venue_info.get('city', '')
-                            venue = f"{ground}, {city}".strip(", ") if (ground or city) else "Cricket Ground"
-
-                            item = {
-                                "title": f"{team1} vs {team2}",
-                                "format": match_format,
-                                "category": match_category,
-                                "series": series_name,
-                                "status": status,
-                                "score": score_str,
-                                "date": match_date_ist,
-                                "venue": venue
-                            }
-
-                            status_lower = status.lower()
-                            # Enhanced Logic for Toss and In-Progress filtering into LIVE category
-                            is_finished = "complete" in state or "result" in state or "won" in status_lower or "drawn" in status_lower
-                            is_live = ("in progress" in state or "live" in state or "toss" in status_lower 
-                                       or "opt to" in status_lower or "innings" in status_lower or "break" in status_lower 
-                                       or "bat" in status_lower or "bowl" in status_lower or "delay" in status_lower)
-
-                            if is_finished:
-                                matches_data["finished"].append(item)
-                            elif is_live or (not is_finished and "upcoming" not in state and "preview" not in state):
-                                matches_data["live"].append(item)
-                            else:
-                                matches_data["upcoming"].append(item)
-        except Exception as e:
-            print("API Exception:", e)
-
-    process_matches_endpoint("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/recent")
-    process_matches_endpoint("https://cricbuzz-cricket.p.rapidapi.com/matches/v1/upcoming")
-
-    return matches_data
-
+# Core route for matches
 @app.route('/')
-def index():
+def home():
+    matches = {'live': [], 'upcoming': [], 'finished': []}
+    
     try:
-        files = FileRecord.query.all()
-    except Exception:
-        files = []
-    is_admin = session.get('is_admin', False)
-    cricket_data = fetch_real_cricket_data()
-    return render_template('index.html', files=files, is_admin=is_admin, cricket_data=cricket_data)
+        url = "https://site.web.api.espn.com/apis/site/v2/sports/cricket/scoreboard"
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req) as response:
+            data = json.loads(response.read().decode('utf-8'))
+            
+            for evt in data.get('events', []):
+                comp = evt.get('competitions', [{}])[0]
+                competitors = comp.get('competitors', [])
+                
+                t1 = competitors[0].get('team', {}).get('displayName', 'TBD') if len(competitors) > 0 else 'TBD'
+                t1_score = competitors[0].get('score', 'Yet to Bat') if len(competitors) > 0 else 'Yet to Bat'
+                
+                t2 = competitors[1].get('team', {}).get('displayName', 'TBD') if len(competitors) > 1 else 'TBD'
+                t2_score = competitors[1].get('score', 'Yet to Bat') if len(competitors) > 1 else 'Yet to Bat'
+                
+                status_type = comp.get('status', {}).get('type', {})
+                state = status_type.get('state', 'pre')
+                status_desc = status_type.get('detail', status_type.get('shortDetail', 'Scheduled'))
+                
+                # Venue & Format logic
+                venue = comp.get('venue', {}).get('fullName', 'Stadium N/A')
+                name_str = (evt.get('name', '') + ' ' + comp.get('type', {}).get('text', '')).lower()
+                
+                if 'test' in name_str:
+                    fmt = 'TEST'
+                elif 'odi' in name_str or 'one day' in name_str:
+                    fmt = 'ODI'
+                else:
+                    fmt = 'T20'
+                
+                match_data = {
+                    'title': evt.get('name', f"{t1} vs {t2}"),
+                    't1': t1, 't1_score': t1_score,
+                    't2': t2, 't2_score': t2_score,
+                    'status': status_desc,
+                    'venue': venue,
+                    'format': fmt,
+                    'date': evt.get('date', '')[:10]
+                }
+                
+                if state == 'in':
+                    matches['live'].append(match_data)
+                elif state == 'post':
+                    matches['finished'].append(match_data)
+                else:
+                    matches['upcoming'].append(match_data)
+                    
+    except Exception as e:
+        print("Backend Fetch Error:", e)
 
-@app.route('/admin', methods=['GET', 'POST'])
-def admin_login():
-    if request.method == 'POST':
-        password = request.form.get('password')
-        admin_pass = os.environ.get('ADMIN_PASSWORD', 'admin123')
-        if password == admin_pass:
-            session['is_admin'] = True
-            flash('Admin Access Granted!')
-            return redirect(url_for('index'))
-        else:
-            flash('Incorrect Admin Password!')
-    return render_template('admin.html')
-
-@app.route('/logout')
-def logout():
-    session.pop('is_admin', None)
-    return redirect(url_for('index'))
-
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    if not session.get('is_admin'):
-        return redirect(url_for('index'))
-    title = request.form.get('title')
-    category = request.form.get('category', 'General Cricket')
-    file = request.files.get('file')
-    if file and title:
-        upload_result = cloudinary.uploader.upload(file, resource_type="auto")
-        new_file = FileRecord(
-            title=title,
-            file_url=upload_result['secure_url'],
-            public_id=upload_result['public_id'],
-            category=category
-        )
-        db.session.add(new_file)
-        db.session.commit()
-    return redirect(url_for('index'))
-
-@app.route('/delete/<int:file_id>', methods=['POST'])
-def delete_file(file_id):
-    if not session.get('is_admin'):
-        return redirect(url_for('index'))
-    file_item = FileRecord.query.get_or_404(file_id)
-    cloudinary.uploader.destroy(file_item.public_id, invalidate=True)
-    db.session.delete(file_item)
-    db.session.commit()
-    return redirect(url_for('index'))
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    return render_template('index.html', matches=matches)
