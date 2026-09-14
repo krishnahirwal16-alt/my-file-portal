@@ -7,72 +7,19 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body {
-            background-color: #0d1117;
-            color: #c9d1d9;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
-        .navbar-custom {
-            background-color: #161b22;
-            border-bottom: 1px solid #30363d;
-            padding: 15px 20px;
-        }
-        .brand-title {
-            color: #58a6ff;
-            font-weight: 700;
-            font-size: 1.5rem;
-        }
-        .btn-admin {
-            background-color: transparent;
-            border: 1px solid #30363d;
-            color: #c9d1d9;
-        }
-        .btn-admin:hover {
-            background-color: #21262d;
-            color: #58a6ff;
-        }
-        .tab-btn {
-            background-color: #161b22;
-            border: 1px solid #30363d;
-            color: #8b949e;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-weight: 600;
-            margin-right: 10px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .tab-btn.active {
-            background-color: #238636;
-            color: #ffffff;
-            border-color: #2ea043;
-        }
-        .widget-card {
-            background-color: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 12px;
-            padding: 15px;
-            margin-top: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        }
-        iframe.cricket-widget {
-            width: 100%;
-            height: 650px;
-            border: none;
-            border-radius: 8px;
-        }
-        .file-card {
-            background-color: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 15px;
-        }
+        body { background-color: #0d1117; color: #c9d1d9; font-family: system-ui, -apple-system, sans-serif; }
+        .navbar-custom { background-color: #161b22; border-bottom: 1px solid #30363d; padding: 15px 20px; }
+        .brand-title { color: #58a6ff; font-weight: 700; font-size: 1.5rem; }
+        .btn-admin { background-color: transparent; border: 1px solid #30363d; color: #c9d1d9; }
+        .btn-admin:hover { background-color: #21262d; color: #58a6ff; }
+        .tab-btn { background-color: #161b22; border: 1px solid #30363d; color: #8b949e; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+        .tab-btn.active { background-color: #238636; color: #ffffff; border-color: #2ea043; }
+        .match-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 15px; margin-bottom: 15px; }
+        .file-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 15px; margin-bottom: 15px; }
     </style>
 </head>
 <body>
 
-    <!-- Header -->
     <nav class="navbar navbar-custom d-flex justify-content-between align-items-center">
         <div class="brand-title">CrixData Hub</div>
         <div>
@@ -85,24 +32,34 @@
     </nav>
 
     <div class="container my-4">
-        <!-- Main Navigation Tabs -->
-        <div class="d-flex mb-4">
-            <button class="tab-btn active" id="btn-matches" onclick="switchSection('matches')">
+        <!-- Main Section Switch -->
+        <div class="d-flex mb-4 gap-2">
+            <button class="tab-btn active" id="btn-matches" onclick="switchMainTab('matches')">
                 <i class="fa-solid fa-tower-broadcast me-2"></i>Real-Time Matches
             </button>
-            <button class="tab-btn" id="btn-vault" onclick="switchSection('vault')">
+            <button class="tab-btn" id="btn-vault" onclick="switchMainTab('vault')">
                 <i class="fa-solid fa-folder-open me-2"></i>Cricket Data Vault
             </button>
         </div>
 
-        <!-- Section 1: Real-Time Matches Widget -->
+        <!-- Section 1: Matches -->
         <div id="section-matches">
-            <div class="widget-card">
-                <iframe class="cricket-widget" src="https://widget.cricwave.com/widget/live-scores" title="Live Cricket Scores"></iframe>
+            <!-- Filter Sub-tabs -->
+            <div class="d-flex mb-3 gap-2">
+                <button class="btn btn-sm btn-outline-light active" id="sub-live" onclick="renderCategory('live')">Live</button>
+                <button class="btn btn-sm btn-outline-light" id="sub-upcoming" onclick="renderCategory('upcoming')">Upcoming</button>
+                <button class="btn btn-sm btn-outline-light" id="sub-finished" onclick="renderCategory('finished')">Finished</button>
+            </div>
+
+            <div id="matches-container" class="row">
+                <div class="col-12 text-center text-muted py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2">Fetching live cricket data...</p>
+                </div>
             </div>
         </div>
 
-        <!-- Section 2: Cricket Data Vault (Uploaded Files) -->
+        <!-- Section 2: Vault -->
         <div id="section-vault" style="display: none;">
             {% if is_admin %}
             <div class="card bg-dark text-light border-secondary p-3 mb-4">
@@ -112,7 +69,7 @@
                         <input type="text" name="title" class="form-control bg-secondary text-white border-0" placeholder="File Title" required>
                     </div>
                     <div class="col-md-4">
-                        <input type="text" name="category" class="form-control bg-secondary text-white border-0" placeholder="Category (e.g. Pitch Report)">
+                        <input type="text" name="category" class="form-control bg-secondary text-white border-0" placeholder="Category">
                     </div>
                     <div class="col-md-3">
                         <input type="file" name="file" class="form-control bg-secondary text-white border-0" required>
@@ -155,24 +112,81 @@
     </div>
 
     <script>
-        function switchSection(section) {
-            const matchesSec = document.getElementById('section-matches');
-            const vaultSec = document.getElementById('section-vault');
-            const btnMatches = document.getElementById('btn-matches');
-            const btnVault = document.getElementById('btn-vault');
+        let matchesStore = { live: [], upcoming: [], finished: [] };
+        let activeCategory = 'live';
 
-            if (section === 'matches') {
-                matchesSec.style.display = 'block';
-                vaultSec.style.display = 'none';
-                btnMatches.classList.add('active');
-                btnVault.classList.remove('active');
-            } else {
-                matchesSec.style.display = 'none';
-                vaultSec.style.display = 'block';
-                btnVault.classList.add('active');
-                btnMatches.classList.remove('active');
+        function switchMainTab(tab) {
+            document.getElementById('section-matches').style.display = tab === 'matches' ? 'block' : 'none';
+            document.getElementById('section-vault').style.display = tab === 'vault' ? 'block' : 'none';
+            document.getElementById('btn-matches').classList.toggle('active', tab === 'matches');
+            document.getElementById('btn-vault').classList.toggle('active', tab === 'vault');
+        }
+
+        async function loadCricketData() {
+            const container = document.getElementById('matches-container');
+            try {
+                // Client-side fetch via proxy bypass to avoid IP block
+                const res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent('https://api.cricapi.com/v1/cda?apikey=36474df6-72be-4573-a442-88ec0c5bc622&offset=0'));
+                const outerData = await res.json();
+                const data = JSON.parse(outerData.contents);
+                
+                if (data && data.data) {
+                    matchesStore = { live: [], upcoming: [], finished: [] };
+                    data.data.forEach(m => {
+                        const cardData = {
+                            title: m.name || 'Cricket Match',
+                            team1: m.teams ? m.teams[0] : 'Team 1',
+                            team2: m.teams ? m.teams[1] || 'Team 2' : 'Team 2',
+                            status: m.status || 'Scheduled',
+                            venue: m.venue || 'Cricket Stadium',
+                            date: m.date || 'Today'
+                        };
+                        if (m.matchEnded) {
+                            matchesStore.finished.push(cardData);
+                        } else if (m.matchStarted) {
+                            matchesStore.live.push(cardData);
+                        } else {
+                            matchesStore.upcoming.push(cardData);
+                        }
+                    });
+                }
+                renderCategory(activeCategory);
+            } catch (err) {
+                container.innerHTML = `<div class="col-12 text-center text-danger py-4"><i class="fa-solid fa-triangle-exclamation fa-2x mb-2"></i><p>Failed to load matches. Please refresh.</p></div>`;
             }
         }
+
+        function renderCategory(cat) {
+            activeCategory = cat;
+            ['live', 'upcoming', 'finished'].forEach(c => {
+                const btn = document.getElementById(`sub-${c}`);
+                if (btn) btn.classList.toggle('active', c === cat);
+            });
+
+            const container = document.getElementById('matches-container');
+            const list = matchesStore[cat] || [];
+
+            if (list.length === 0) {
+                container.innerHTML = `<div class="col-12 text-center text-muted py-5"><p>No ${cat} matches available at the moment.</p></div>`;
+                return;
+            }
+
+            container.innerHTML = list.map(m => `
+                <div class="col-md-6 col-lg-4">
+                    <div class="match-card">
+                        <div class="d-flex justify-content-between text-muted small mb-2">
+                            <span>${m.venue}</span>
+                            <span>${m.date}</span>
+                        </div>
+                        <h6 class="text-white mb-2">${m.team1} <span class="text-danger">vs</span> ${m.team2}</h6>
+                        <div class="text-info small fw-bold mt-2">${m.status}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Initialize on page load
+        loadCricketData();
     </script>
 </body>
 </html>
