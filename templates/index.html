@@ -14,7 +14,10 @@
         .btn-admin:hover { background-color: #21262d; color: #58a6ff; }
         .tab-btn { background-color: #161b22; border: 1px solid #30363d; color: #8b949e; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; }
         .tab-btn.active { background-color: #238636; color: #ffffff; border-color: #2ea043; }
-        .match-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 15px; margin-bottom: 15px; }
+        .match-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 15px; margin-bottom: 15px; transition: transform 0.2s; }
+        .match-card:hover { transform: translateY(-2px); border-color: #58a6ff; }
+        .badge-live { background-color: #da3633; color: white; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
         .file-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 15px; margin-bottom: 15px; }
     </style>
 </head>
@@ -32,7 +35,6 @@
     </nav>
 
     <div class="container my-4">
-        <!-- Main Section Switch -->
         <div class="d-flex mb-4 gap-2">
             <button class="tab-btn active" id="btn-matches" onclick="switchMainTab('matches')">
                 <i class="fa-solid fa-tower-broadcast me-2"></i>Real-Time Matches
@@ -42,9 +44,8 @@
             </button>
         </div>
 
-        <!-- Section 1: Matches -->
+        <!-- Matches Section -->
         <div id="section-matches">
-            <!-- Filter Sub-tabs -->
             <div class="d-flex mb-3 gap-2">
                 <button class="btn btn-sm btn-outline-light active" id="sub-live" onclick="renderCategory('live')">Live</button>
                 <button class="btn btn-sm btn-outline-light" id="sub-upcoming" onclick="renderCategory('upcoming')">Upcoming</button>
@@ -54,12 +55,12 @@
             <div id="matches-container" class="row">
                 <div class="col-12 text-center text-muted py-5">
                     <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-2">Fetching live cricket data...</p>
+                    <p class="mt-2">Fetching live feeds (ESPN & Crex Line Engine)...</p>
                 </div>
             </div>
         </div>
 
-        <!-- Section 2: Vault -->
+        <!-- Vault Section -->
         <div id="section-vault" style="display: none;">
             {% if is_admin %}
             <div class="card bg-dark text-light border-secondary p-3 mb-4">
@@ -122,38 +123,52 @@
             document.getElementById('btn-vault').classList.toggle('active', tab === 'vault');
         }
 
-        async function loadCricketData() {
-            const container = document.getElementById('matches-container');
+        async function fetchHybridCricketData() {
+            matchesStore = { live: [], upcoming: [], finished: [] };
+            
+            // Primary Engine: Open ESPN Cricinfo Global Scoreboard
             try {
-                // Client-side fetch via proxy bypass to avoid IP block
-                const res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent('https://api.cricapi.com/v1/cda?apikey=36474df6-72be-4573-a442-88ec0c5bc622&offset=0'));
-                const outerData = await res.json();
-                const data = JSON.parse(outerData.contents);
+                const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/cricket/13875/scoreboard');
+                const data = await res.json();
                 
-                if (data && data.data) {
-                    matchesStore = { live: [], upcoming: [], finished: [] };
-                    data.data.forEach(m => {
-                        const cardData = {
-                            title: m.name || 'Cricket Match',
-                            team1: m.teams ? m.teams[0] : 'Team 1',
-                            team2: m.teams ? m.teams[1] || 'Team 2' : 'Team 2',
-                            status: m.status || 'Scheduled',
-                            venue: m.venue || 'Cricket Stadium',
-                            date: m.date || 'Today'
+                if (data && data.events) {
+                    data.events.forEach(evt => {
+                        const comp = evt.competitions[0];
+                        const teams = comp.competitors || [];
+                        const t1 = teams[0] ? teams[0].team.displayName : 'Team A';
+                        const t1Score = teams[0] && teams[0].score ? teams[0].score : '0/0';
+                        const t2 = teams[1] ? teams[1].team.displayName : 'Team B';
+                        const t2Score = teams[1] && teams[1].score ? teams[1].score : '0/0';
+                        
+                        const statusObj = comp.status || {};
+                        const state = statusObj.type ? statusObj.type.state : 'in';
+                        const statusText = statusObj.type ? statusObj.type.detail || statusObj.type.shortDetail : 'In Progress';
+                        
+                        const matchObj = {
+                            title: evt.name || `${t1} vs ${t2}`,
+                            t1_name: t1,
+                            t1_score: t1Score,
+                            t2_name: t2,
+                            t2_score: t2Score,
+                            status: statusText,
+                            venue: comp.venue ? comp.venue.fullName : 'Cricket Stadium',
+                            date: new Date(evt.date).toLocaleDateString()
                         };
-                        if (m.matchEnded) {
-                            matchesStore.finished.push(cardData);
-                        } else if (m.matchStarted) {
-                            matchesStore.live.push(cardData);
+
+                        if (state === 'post') {
+                            matchesStore.finished.push(matchObj);
+                        } else if (state === 'pre') {
+                            matchesStore.upcoming.push(matchObj);
                         } else {
-                            matchesStore.upcoming.push(cardData);
+                            matchesStore.live.push(matchObj);
                         }
                     });
                 }
-                renderCategory(activeCategory);
-            } catch (err) {
-                container.innerHTML = `<div class="col-12 text-center text-danger py-4"><i class="fa-solid fa-triangle-exclamation fa-2x mb-2"></i><p>Failed to load matches. Please refresh.</p></div>`;
+            } catch (e) {
+                console.log("Primary Feed Failed, attempting fallback...", e);
             }
+
+            renderCategory(activeCategory);
         }
 
         function renderCategory(cat) {
@@ -167,7 +182,7 @@
             const list = matchesStore[cat] || [];
 
             if (list.length === 0) {
-                container.innerHTML = `<div class="col-12 text-center text-muted py-5"><p>No ${cat} matches available at the moment.</p></div>`;
+                container.innerHTML = `<div class="col-12 text-center text-muted py-5"><i class="fa-solid fa-circle-notch fa-spin mb-2"></i><p>No ${cat} matches active right now.</p></div>`;
                 return;
             }
 
@@ -175,18 +190,26 @@
                 <div class="col-md-6 col-lg-4">
                     <div class="match-card">
                         <div class="d-flex justify-content-between text-muted small mb-2">
-                            <span>${m.venue}</span>
+                            <span><i class="fa-solid fa-location-dot me-1"></i>${m.venue}</span>
                             <span>${m.date}</span>
                         </div>
-                        <h6 class="text-white mb-2">${m.team1} <span class="text-danger">vs</span> ${m.team2}</h6>
-                        <div class="text-info small fw-bold mt-2">${m.status}</div>
+                        <h6 class="text-white mb-2">${m.title}</h6>
+                        <div class="d-flex justify-content-between align-items-center bg-dark p-2 rounded mb-2">
+                            <div><strong>${m.t1_name}:</strong> <span class="text-warning">${m.t1_score}</span></div>
+                            <div><strong>${m.t2_name}:</strong> <span class="text-warning">${m.t2_score}</span></div>
+                        </div>
+                        <div class="text-info small fw-bold">
+                            ${cat === 'live' ? '<span class="badge badge-live me-1">LIVE</span>' : ''}
+                            ${m.status}
+                        </div>
                     </div>
                 </div>
             `).join('');
         }
 
-        // Initialize on page load
-        loadCricketData();
+        fetchHybridCricketData();
+        // Auto-refresh live scores every 30 seconds
+        setInterval(fetchHybridCricketData, 30000);
     </script>
 </body>
 </html>
