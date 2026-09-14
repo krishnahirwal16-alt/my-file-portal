@@ -3,212 +3,175 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CrixData Hub - Live Analytics & Vault</title>
+    <title>CrixData Hub</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #0d1117; color: #c9d1d9; }
-        header { background: #161b22; padding: 15px 30px; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; }
-        .logo { font-size: 24px; font-weight: bold; color: #58a6ff; }
-        .container { max-width: 1240px; margin: 20px auto; padding: 0 15px; }
-        
-        .main-tabs, .match-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #30363d; padding-bottom: 10px; flex-wrap: wrap; }
-        .tab-btn { background: #21262d; border: 1px solid #30363d; color: #8b949e; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
-        .tab-btn.active { background: #1f6feb; color: white; border-color: #1f6feb; }
-        
-        .tab-content, .subtab-content { display: none; }
-        .tab-content.active, .subtab-content.active { display: block; }
-
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; }
-        .card { background: #161b22; border: 1px solid #30363d; padding: 16px; border-radius: 8px; position: relative; }
-        .badge-container { position: absolute; top: 12px; right: 12px; display: flex; gap: 5px; }
-        .format-badge { background: #238636; color: white; font-size: 10px; padding: 3px 6px; border-radius: 4px; font-weight: bold; }
-        .category-badge { background: #8957e5; color: white; font-size: 10px; padding: 3px 6px; border-radius: 4px; font-weight: bold; }
-        
-        .card h4 { margin: 0 0 5px 0; color: #f0f6fc; font-size: 16px; padding-right: 120px; }
-        .series { font-size: 12px; color: #8b949e; margin-bottom: 6px; font-weight: 500; }
-        .match-date { font-size: 11px; color: #e3b341; margin-bottom: 10px; font-weight: bold; }
-        .score { font-size: 14px; font-weight: bold; color: #3fb950; margin: 10px 0; background: #0d1117; padding: 9px; border-radius: 5px; border: 1px solid #21262d; line-height: 1.4; }
-        .status { font-size: 13px; color: #d29922; font-weight: 600; }
-        .venue { font-size: 11px; color: #6e7681; margin-top: 8px; }
-
-        form { background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-bottom: 25px; }
-        input[type="text"], input[type="file"], select { width: 95%; padding: 10px; margin: 8px 0 15px 0; background: #0d1117; border: 1px solid #30363d; color: white; border-radius: 5px; }
-        button { background: #238636; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; background: #161b22; border-radius: 8px; overflow: hidden; }
-        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #30363d; }
-        th { background: #21262d; color: #f0f6fc; }
-        a.view-link { color: #58a6ff; text-decoration: none; font-weight: bold; }
+        body {
+            background-color: #0d1117;
+            color: #c9d1d9;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .navbar-custom {
+            background-color: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 15px 20px;
+        }
+        .brand-title {
+            color: #58a6ff;
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+        .btn-admin {
+            background-color: transparent;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+        }
+        .btn-admin:hover {
+            background-color: #21262d;
+            color: #58a6ff;
+        }
+        .tab-btn {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            color: #8b949e;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-right: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .tab-btn.active {
+            background-color: #238636;
+            color: #ffffff;
+            border-color: #2ea043;
+        }
+        .widget-card {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        iframe.cricket-widget {
+            width: 100%;
+            height: 650px;
+            border: none;
+            border-radius: 8px;
+        }
+        .file-card {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
 
-    <header>
-        <div class="logo">🏏 CrixData Hub</div>
+    <!-- Header -->
+    <nav class="navbar navbar-custom d-flex justify-content-between align-items-center">
+        <div class="brand-title">CrixData Hub</div>
         <div>
             {% if is_admin %}
-                <span style="color:#3fb950; margin-right:15px;">● Admin Logged In</span>
-                <a href="/logout" style="color:#f85149; text-decoration:none; font-weight:bold;">Logout</a>
+                <a href="/logout" class="btn btn-admin btn-sm">Logout Admin</a>
             {% else %}
-                <a href="/admin" style="color:#8b949e; text-decoration:none;">Admin Login</a>
+                <a href="/admin" class="btn btn-admin btn-sm">Admin Login</a>
             {% endif %}
         </div>
-    </header>
+    </nav>
 
-    <div class="container">
-        
-        <div class="main-tabs">
-            <button class="tab-btn active" onclick="switchMainTab('scores', this)">📊 Real-Time Matches</button>
-            <button class="tab-btn" onclick="switchMainTab('vault', this)">📁 Cricket Data Vault</button>
+    <div class="container my-4">
+        <!-- Main Navigation Tabs -->
+        <div class="d-flex mb-4">
+            <button class="tab-btn active" id="btn-matches" onclick="switchSection('matches')">
+                <i class="fa-solid fa-tower-broadcast me-2"></i>Real-Time Matches
+            </button>
+            <button class="tab-btn" id="btn-vault" onclick="switchSection('vault')">
+                <i class="fa-solid fa-folder-open me-2"></i>Cricket Data Vault
+            </button>
         </div>
 
-        <!-- TAB 1: REAL-TIME MATCHES -->
-        <div id="scores-tab" class="tab-content active">
-            
-            <div class="match-tabs">
-                <button class="tab-btn active" onclick="switchSubTab('live', this)">🔴 Live Matches ({{ cricket_data.live|length if cricket_data else 0 }})</button>
-                <button class="tab-btn" onclick="switchSubTab('upcoming', this)">📅 Upcoming Matches ({{ cricket_data.upcoming|length if cricket_data else 0 }})</button>
-                <button class="tab-btn" onclick="switchSubTab('finished', this)">✅ Finished Matches ({{ cricket_data.finished|length if cricket_data else 0 }})</button>
+        <!-- Section 1: Real-Time Matches Widget -->
+        <div id="section-matches">
+            <div class="widget-card">
+                <iframe class="cricket-widget" src="https://widget.cricwave.com/widget/live-scores" title="Live Cricket Scores"></iframe>
             </div>
-
-            <!-- LIVE SUBTAB -->
-            <div id="live-subtab" class="subtab-content active">
-                <div class="grid">
-                    {% if cricket_data and cricket_data.live %}
-                        {% for match in cricket_data.live %}
-                        <div class="card">
-                            <div class="badge-container">
-                                <span class="category-badge">{{ match.category }}</span>
-                                <span class="format-badge">{{ match.format }}</span>
-                            </div>
-                            <h4>{{ match.title }}</h4>
-                            <div class="series">🏆 {{ match.series }}</div>
-                            <div class="match-date">⏰ IST Time: {{ match.date }}</div>
-                            <div class="score">⚡ {{ match.score }}</div>
-                            <div class="status">📌 Status: {{ match.status }}</div>
-                            <div class="venue">📍 {{ match.venue }}</div>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <div style="padding:20px; color:#8b949e; background:#161b22; border-radius:8px; border:1px solid #30363d;">No live matches active right now.</div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- UPCOMING SUBTAB -->
-            <div id="upcoming-subtab" class="subtab-content">
-                <div class="grid">
-                    {% if cricket_data and cricket_data.upcoming %}
-                        {% for match in cricket_data.upcoming %}
-                        <div class="card">
-                            <div class="badge-container">
-                                <span class="category-badge">{{ match.category }}</span>
-                                <span class="format-badge">{{ match.format }}</span>
-                            </div>
-                            <h4>{{ match.title }}</h4>
-                            <div class="series">🏆 {{ match.series }}</div>
-                            <div class="match-date">📅 Scheduled IST: {{ match.date }}</div>
-                            <div class="status" style="color:#58a6ff;">⏰ {{ match.status }}</div>
-                            <div class="venue">📍 {{ match.venue }}</div>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <div style="padding:20px; color:#8b949e; background:#161b22; border-radius:8px; border:1px solid #30363d;">No upcoming matches scheduled right now.</div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- FINISHED SUBTAB -->
-            <div id="finished-subtab" class="subtab-content">
-                <div class="grid">
-                    {% if cricket_data and cricket_data.finished %}
-                        {% for match in cricket_data.finished %}
-                        <div class="card">
-                            <div class="badge-container">
-                                <span class="category-badge">{{ match.category }}</span>
-                                <span class="format-badge">{{ match.format }}</span>
-                            </div>
-                            <h4>{{ match.title }}</h4>
-                            <div class="series">🏆 {{ match.series }}</div>
-                            <div class="match-date">📅 Match Date: {{ match.date }}</div>
-                            <div class="score">📊 {{ match.score }}</div>
-                            <div class="status" style="color:#3fb950;">🏁 Result: {{ match.status }}</div>
-                            <div class="venue">📍 {{ match.venue }}</div>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <div style="padding:20px; color:#8b949e; background:#161b22; border-radius:8px; border:1px solid #30363d;">No completed match records.</div>
-                    {% endif %}
-                </div>
-            </div>
-
         </div>
 
-        <!-- TAB 2: DATA VAULT -->
-        <div id="vault-tab" class="tab-content">
+        <!-- Section 2: Cricket Data Vault (Uploaded Files) -->
+        <div id="section-vault" style="display: none;">
             {% if is_admin %}
-            <form action="/upload" method="POST" enctype="multipart/form-data">
-                <h3 style="margin-top:0; color:#f0f6fc;">Upload Cricket Records</h3>
-                <input type="text" name="title" placeholder="Record Title (e.g., Pitch & Boundary Stats)" required>
-                <select name="category">
-                    <option value="Match Analytics">Match Analytics</option>
-                    <option value="Player Matchups">Player Matchups</option>
-                    <option value="Pitch & Venue Report">Pitch & Venue Report</option>
-                    <option value="Database/Excel">Database / Excel</option>
-                </select>
-                <input type="file" name="file" required>
-                <button type="submit">Upload File</button>
-            </form>
+            <div class="card bg-dark text-light border-secondary p-3 mb-4">
+                <h5 class="text-success"><i class="fa-solid fa-cloud-arrow-up me-2"></i>Upload File to Vault</h5>
+                <form action="/upload" method="POST" enctype="multipart/form-data" class="row g-3 mt-1">
+                    <div class="col-md-5">
+                        <input type="text" name="title" class="form-control bg-secondary text-white border-0" placeholder="File Title" required>
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" name="category" class="form-control bg-secondary text-white border-0" placeholder="Category (e.g. Pitch Report)">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="file" name="file" class="form-control bg-secondary text-white border-0" required>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-success fw-bold">Upload Data File</button>
+                    </div>
+                </form>
+            </div>
             {% endif %}
 
-            <h3 style="color:#f0f6fc;">Stored Cricket Files</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Title</th>
-                        <th>Category</th>
-                        <th>Access</th>
-                        {% if is_admin %}<th>Action</th>{% endif %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for file in files %}
-                    <tr>
-                        <td style="color:#f0f6fc;">{{ file.title }}</td>
-                        <td><span style="background:#21262d; padding:4px 8px; border-radius:4px; font-size:12px;">{{ file.category }}</span></td>
-                        <td><a href="{{ file.file_url }}" target="_blank" class="view-link">Open File ↗</a></td>
-                        {% if is_admin %}
-                        <td>
-                            <form action="/delete/{{ file.id }}" method="POST" style="margin:0; background:none; border:none;">
-                                <button type="submit" style="background:#da3633; padding:5px 10px; font-size:12px;">Delete</button>
-                            </form>
-                        </td>
-                        {% endif %}
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="4" style="text-align:center; color:#8b949e;">No files uploaded.</td>
-                    </tr>
+            <div class="row">
+                {% if files %}
+                    {% for f in files %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="file-card d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-white mb-1">{{ f.title }}</h6>
+                                <span class="badge bg-secondary">{{ f.category }}</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <a href="{{ f.file_url }}" target="_blank" class="btn btn-primary btn-sm"><i class="fa-solid fa-download"></i></a>
+                                {% if is_admin %}
+                                <form action="/delete/{{ f.id }}" method="POST" onsubmit="return confirm('Delete this file?');">
+                                    <button type="submit" class="btn btn-danger btn-sm"><i class="fa-solid fa-trash"></i></button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
                     {% endfor %}
-                </tbody>
-            </table>
+                {% else %}
+                    <div class="col-12 text-center text-muted py-5">
+                        <i class="fa-solid fa-box-open fa-3x mb-3"></i>
+                        <p>No files available in Cricket Data Vault yet.</p>
+                    </div>
+                {% endif %}
+            </div>
         </div>
-
     </div>
 
     <script>
-        function switchMainTab(tabName, btnElement) {
-            document.querySelectorAll('.main-tabs .tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.container > .tab-content').forEach(el => el.classList.remove('active'));
-            
-            btnElement.classList.add('active');
-            document.getElementById(tabName + '-tab').classList.add('active');
-        }
+        function switchSection(section) {
+            const matchesSec = document.getElementById('section-matches');
+            const vaultSec = document.getElementById('section-vault');
+            const btnMatches = document.getElementById('btn-matches');
+            const btnVault = document.getElementById('btn-vault');
 
-        function switchSubTab(subTabName, btnElement) {
-            document.querySelectorAll('.match-tabs .tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.subtab-content').forEach(el => el.classList.remove('active'));
-            
-            btnElement.classList.add('active');
-            document.getElementById(subTabName + '-subtab').classList.add('active');
+            if (section === 'matches') {
+                matchesSec.style.display = 'block';
+                vaultSec.style.display = 'none';
+                btnMatches.classList.add('active');
+                btnVault.classList.remove('active');
+            } else {
+                matchesSec.style.display = 'none';
+                vaultSec.style.display = 'block';
+                btnVault.classList.add('active');
+                btnMatches.classList.remove('active');
+            }
         }
     </script>
 </body>
